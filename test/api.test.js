@@ -45,6 +45,23 @@ test('create-payment está registrado e valida o body antes de acessar o banco',
   assert.ok(Array.isArray(body.details));
 });
 
+test('create-payment exige WhatsApp brasileiro válido', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/api/create-payment`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ planId: 'daily', userPhone: '123', userName: 'Teste' }),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(body.error, /WhatsApp válido/);
+});
+
 test('rota de diagnóstico lista create-payment em ambiente não produtivo', async (context) => {
   const server = app.listen(0);
   context.after(() => new Promise((resolve) => server.close(resolve)));

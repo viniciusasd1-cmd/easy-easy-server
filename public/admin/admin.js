@@ -73,6 +73,31 @@ function updateCountdowns() {
   });
 }
 
+function whatsAppDigits(phone) {
+  return String(phone || '').replace(/\D/g, '');
+}
+
+async function copyLicenseKey(licenseKey, button) {
+  await navigator.clipboard.writeText(licenseKey);
+  const original = button.textContent;
+  button.textContent = 'Chave copiada!';
+  setTimeout(() => {
+    button.textContent = original;
+  }, 1600);
+}
+
+function sendLicenseByWhatsApp(payment) {
+  const phone = whatsAppDigits(payment.userPhone);
+  if (!phone || !payment.licenseKey) return;
+  const message = [
+    `Olá${payment.userName ? `, ${payment.userName}` : ''}! Seu pagamento EASY&EASY foi confirmado.`,
+    `Chave da licença: ${payment.licenseKey}`,
+    `Plano: ${payment.planName || payment.plan}`,
+    payment.expiresAt ? `Validade: ${formatDate(payment.expiresAt)}` : 'Validade: vitalícia',
+  ].join('\n');
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+}
+
 async function adminRequest(path, options = {}) {
   const response = await fetch(path, {
     ...options,
@@ -119,9 +144,9 @@ function renderPayments(payments) {
     const identity = document.createElement('div');
     const name = document.createElement('strong');
     name.textContent = payment.userName || 'Cliente sem nome';
-    const email = document.createElement('span');
-    email.textContent = payment.userEmail || 'E-mail não informado';
-    identity.append(name, email);
+    const contact = document.createElement('span');
+    contact.textContent = payment.userPhone || payment.userEmail || 'WhatsApp não informado';
+    identity.append(name, contact);
     const badge = document.createElement('span');
     badge.className = `status status-${payment.status}`;
     badge.textContent = statusLabel(payment.status);
@@ -143,6 +168,7 @@ function renderPayments(payments) {
       ['Tempo restante', countdown],
       ...(payment.paidAt ? [['Aprovado em', formatDate(payment.paidAt)]] : []),
       ...(payment.expiresAt ? [['Válida até', formatDate(payment.expiresAt)]] : []),
+      ...(payment.licenseKey ? [['Chave da licença', payment.licenseKey]] : []),
       ['Criado em', formatDate(payment.createdAt)],
       ['Identificador', payment.referenceCode || '—'],
       ['Pagamento', payment.paymentId],
@@ -166,6 +192,26 @@ function renderPayments(payments) {
       approve.textContent = 'Confirmar recebimento e liberar licença';
       approve.addEventListener('click', () => void approvePayment(payment, approve));
       card.append(approve);
+    } else if (payment.status === 'paid' && payment.licenseKey) {
+      const actions = document.createElement('div');
+      actions.className = 'payment-actions';
+
+      const copy = document.createElement('button');
+      copy.className = 'secondary';
+      copy.type = 'button';
+      copy.textContent = 'Copiar chave';
+      copy.addEventListener('click', () => void copyLicenseKey(payment.licenseKey, copy));
+      actions.append(copy);
+
+      if (whatsAppDigits(payment.userPhone)) {
+        const whatsApp = document.createElement('button');
+        whatsApp.className = 'primary';
+        whatsApp.type = 'button';
+        whatsApp.textContent = 'Enviar pelo WhatsApp';
+        whatsApp.addEventListener('click', () => sendLicenseByWhatsApp(payment));
+        actions.append(whatsApp);
+      }
+      card.append(actions);
     }
     elements.payments.append(card);
   }

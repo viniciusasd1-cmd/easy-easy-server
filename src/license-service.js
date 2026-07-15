@@ -8,7 +8,7 @@ class LicenseService {
     this.paymentProvider = paymentProvider;
   }
 
-  async createPayment({ planId, userEmail, userName }) {
+  async createPayment({ planId, userPhone, userName }) {
     console.log('🧾 Iniciando criação de pagamento:', {
       planId,
       provider: this.paymentProvider.kind,
@@ -30,7 +30,7 @@ class LicenseService {
         .insert({
           license_key: generateLicenseKey(),
           plan: plan.id,
-          user_email: userEmail.toLowerCase(),
+          user_phone: userPhone,
           user_name: userName || null,
           payment_status: 'pending',
         })
@@ -53,7 +53,7 @@ class LicenseService {
       const pix = await this.paymentProvider.createPix({
         amount: plan.price,
         description: `Licença EASY&EASY - ${plan.name}`,
-        payerEmail: userEmail,
+        payerEmail: 'cliente@easy-easy.app',
         externalReference: license.id,
         pixReference: referenceCode,
       });
@@ -326,7 +326,7 @@ class LicenseService {
     let query = getSupabase()
       .from('payments')
       .select(
-        'id, status, amount, created_at, paid_at, license:licenses(id, plan, user_email, user_name, expires_at)',
+        'id, status, amount, created_at, paid_at, license:licenses(id, license_key, plan, user_phone, user_email, user_name, expires_at)',
       )
       .eq('provider', 'manual_pix')
       .order('created_at', { ascending: false })
@@ -354,8 +354,12 @@ class LicenseService {
         plan: payment.license?.plan || '',
         planName: plan?.name || payment.license?.plan || '',
         durationDays: plan?.days ?? null,
+        userPhone: payment.license?.user_phone || '',
         userEmail: payment.license?.user_email || '',
         userName: payment.license?.user_name || '',
+        licenseKey: payment.status === 'paid'
+          ? payment.license?.license_key || ''
+          : '',
       };
     });
   }

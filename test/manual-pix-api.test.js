@@ -8,7 +8,7 @@ process.env.PIX_KEY = 'pagamentos@example.com';
 process.env.PIX_MERCHANT_NAME = 'EASY EASY';
 process.env.PIX_MERCHANT_CITY = 'SAO PAULO';
 process.env.MANUAL_APPROVAL_SECRET = 'uma-chave-administrativa-de-teste';
-process.env.ALLOW_ANY_EXTENSION_ORIGIN = 'true';
+process.env.ALLOW_ANY_EXTENSION_ORIGIN = 'false';
 process.env.BASE_URL = 'https://easy-easy-server.onrender.com';
 
 const test = require('node:test');
@@ -73,6 +73,35 @@ test('painel administrativo possui relógio regressivo de validade', async (cont
   assert.match(body, /Duração contratada/);
   assert.match(body, /Começa após a aprovação/);
   assert.match(body, /setInterval\(updateCountdowns, 1000\)/);
+  assert.match(body, /Enviar pelo WhatsApp/);
+});
+
+test('CORS permite extensão Chrome somente nas rotas públicas', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const origin = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+  const response = await fetch(`http://127.0.0.1:${port}/api/plans`, {
+    headers: { Origin: origin },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('access-control-allow-origin'), origin);
+});
+
+test('CORS bloqueia extensão Chrome na rota administrativa', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/api/admin/payments`, {
+    headers: { Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop' },
+  });
+
+  assert.equal(response.status, 403);
 });
 
 test('CORS permite requisições do próprio painel administrativo', async (context) => {

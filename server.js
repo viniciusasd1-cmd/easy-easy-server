@@ -25,9 +25,20 @@ function corsRejection(message) {
   return error;
 }
 
+function isExtensionPublicApi(pathname) {
+  return [
+    '/api/plans',
+    '/api/create-payment',
+    '/api/activate',
+    '/api/validate',
+    '/api/login',
+    '/api/my-license',
+  ].includes(pathname) || pathname.startsWith('/api/check-payment/');
+}
+
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(
+app.use((req, res, next) => {
   cors({
     origin(origin, callback) {
       if (!origin) return callback(null, true);
@@ -36,12 +47,10 @@ app.use(
         return callback(null, true);
       }
       if (origin.startsWith('chrome-extension://')) {
-        const extensionId = origin.slice('chrome-extension://'.length);
-        const allowed =
-          config.allowAnyExtensionOrigin ||
-          config.allowedExtensionIds.includes(extensionId);
+        const validExtensionOrigin = /^chrome-extension:\/\/[a-p]{32}$/.test(origin);
+        const allowed = validExtensionOrigin && isExtensionPublicApi(req.path);
         return callback(
-          allowed ? null : corsRejection('Extensão não autorizada'),
+          allowed ? null : corsRejection('Extensão não autorizada para esta rota'),
           allowed,
         );
       }
@@ -57,8 +66,8 @@ app.use(
       'X-Admin-Key',
       'Authorization',
     ],
-  }),
-);
+  })(req, res, next);
+});
 app.use(express.json({ limit: '100kb' }));
 
 if (!config.isProduction) {
@@ -111,9 +120,21 @@ function requireManualApprovalSecret(req, res, next) {
   return next();
 }
 
+function normalizeBrazilianPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (/^55\d{10,11}$/.test(digits)) return `+${digits}`;
+  if (/^\d{10,11}$/.test(digits)) return `+55${digits}`;
+  return String(value || '').trim();
+}
+
 const paymentSchema = z.object({
   planId: z.enum(['daily', 'weekly', 'fortnightly', 'monthly', 'annual', 'lifetime']),
-  userEmail: z.email('Informe um e-mail válido').max(254),
+  userPhone: z
+    .string()
+    .trim()
+    .max(24)
+    .transform(normalizeBrazilianPhone)
+    .refine((value) => /^\+55\d{10,11}$/.test(value), 'Informe um WhatsApp válido com DDD'),
   userName: z.string().trim().max(80).optional().default(''),
 });
 const licenseSchema = z.object({
@@ -164,7 +185,7 @@ app.post(
       const input = paymentSchema.parse(req.body);
       console.log('✅ Schema validado:', {
         planId: input.planId,
-        userEmail: input.userEmail,
+        userPhone: input.userPhone,
         userName: input.userName,
       });
 

@@ -8,6 +8,7 @@ create table if not exists public.licenses (
   license_key text unique not null,
   plan text not null,
   user_email text,
+  user_phone text,
   user_name text,
   device_id text,
   created_at timestamptz not null default now(),
@@ -22,6 +23,8 @@ create table if not exists public.licenses (
     check (license_key ~ '^EASY-[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$'),
   constraint licenses_plan_check
     check (plan in ('daily', 'weekly', 'fortnightly', 'monthly', 'annual', 'lifetime')),
+  constraint licenses_user_phone_format
+    check (user_phone is null or user_phone ~ '^\+55[0-9]{10,11}$'),
   constraint licenses_payment_status_check
     check (payment_status in ('pending', 'paid', 'expired', 'failed', 'refunded')),
   constraint licenses_max_devices_check
