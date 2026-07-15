@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Painel EASY&amp;EASY</title>
+    <link rel="stylesheet" href="/admin/admin.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <div>
+          <span class="eyebrow">EASY&amp;EASY</span>
+          <h1>Painel de pagamentos</h1>
+          <p>Confira o PIX no banco antes de liberar qualquer licença.</p>
+        </div>
+        <button id="logout" class="secondary" type="button" hidden>Sair</button>
+      </header>
+
+      <section id="login" class="card login-card">
+        <h2>Acesso administrativo</h2>
+        <p>Digite a chave administrativa configurada no Render.</p>
+        <label>
+          <span>Chave administrativa</span>
+          <input id="admin-key" type="password" autocomplete="current-password" />
+        </label>
+        <button id="enter" class="primary" type="button">Entrar no painel</button>
+        <p id="login-message" class="message" aria-live="polite"></p>
+      </section>
+
+      <section id="dashboard" hidden>
+        <div class="toolbar">
+          <div>
+            <strong>Pagamentos</strong>
+            <span id="updated-at">Aguardando atualização</span>
+          </div>
+          <label>
+            <span>Status</span>
+            <select id="status-filter">
+              <option value="pending">Pendentes</option>
+              <option value="paid">Pagos</option>
+              <option value="">Todos</option>
+              <option value="expired">Expirados</option>
+              <option value="failed">Falhos</option>
+            </select>
+          </label>
+          <button id="refresh" class="secondary" type="button">Atualizar</button>
+        </div>
+
+        <div id="loading" class="state">Carregando pagamentos...</div>
+        <div id="empty" class="state" hidden>Nenhum pagamento encontrado.</div>
+        <div id="payments" class="payments" aria-live="polite"></div>
+      </section>
+    </main>
+    <script src="/admin/admin.js"></script>
+  </body>
+</html>

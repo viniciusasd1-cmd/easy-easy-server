@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const path = require('node:path');
 const cors = require('cors');
 const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
@@ -100,7 +101,7 @@ function requireManualApprovalSecret(req, res, next) {
 }
 
 const paymentSchema = z.object({
-  planId: z.enum(['monthly', 'quarterly', 'annual', 'lifetime']),
+  planId: z.enum(['daily', 'weekly', 'fortnightly', 'monthly', 'annual', 'lifetime']),
   userEmail: z.email('Informe um e-mail válido').max(254),
   userName: z.string().trim().max(80).optional().default(''),
 });
@@ -126,6 +127,15 @@ app.get('/health', (_req, res) => {
 app.get('/api/plans', (_req, res) => {
   res.json({ plans: PLANS });
 });
+
+app.use(
+  '/admin',
+  express.static(path.join(__dirname, 'public', 'admin'), {
+    dotfiles: 'deny',
+    index: 'index.html',
+    redirect: true,
+  }),
+);
 
 console.log('📋 Registrando rota: POST /api/create-payment');
 app.post(
@@ -235,6 +245,20 @@ app.post(
 );
 
 if (config.paymentProvider === 'manual_pix') {
+  app.get(
+    '/api/admin/payments',
+    adminLimiter,
+    requireManualApprovalSecret,
+    asyncRoute(async (req, res) => {
+      const status = z
+        .enum(['pending', 'paid', 'expired', 'failed', 'refunded'])
+        .optional()
+        .parse(req.query.status || undefined);
+      const data = await licenseService.listAdminPayments(status);
+      res.json({ success: true, data });
+    }),
+  );
+
   app.post(
     '/api/admin/payments/:paymentId/approve',
     adminLimiter,

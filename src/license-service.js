@@ -49,11 +49,13 @@ class LicenseService {
     }
 
     try {
+      const referenceCode = `EE${license.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
       const pix = await this.paymentProvider.createPix({
         amount: plan.price,
         description: `Licença EASY&EASY - ${plan.name}`,
         payerEmail: userEmail,
         externalReference: license.id,
+        pixReference: referenceCode,
       });
       console.log('✅ PIX criado pelo provedor:', {
         provider: this.paymentProvider.kind,
@@ -96,6 +98,7 @@ class LicenseService {
         amount: plan.price,
         plan: plan.id,
         planName: plan.name,
+        referenceCode,
         status: 'pending',
         expiresAt: pix.expiresAt,
       };
@@ -110,12 +113,46 @@ class LicenseService {
   }
 
   async confirmProviderPayment(providerPaymentId, rawResponse, paidAt = null) {
-    const result = await getSupabase().rpc('confirm_payment', {
+    const supabase = getSupabase();
+    const effectivePaidAt = paidAt || new Date().toISOString();
+    const result = await supabase.rpc('confirm_payment', {
       p_provider_payment_id: String(providerPaymentId),
-      p_paid_at: paidAt || new Date().toISOString(),
+      p_paid_at: effectivePaidAt,
       p_raw_response: rawResponse || {},
     });
-    return unwrap(result, 'Não foi possível confirmar o pagamento');
+    const licenseId = unwrap(result, 'Não foi possível confirmar o pagamento');
+
+    // Mantém a duração correta mesmo enquanto uma instalação antiga do banco
+    // ainda não recebeu a versão mais nova da função confirm_payment.
+    const license = unwrap(
+      await supabase
+        .from('licenses')
+        .select('plan')
+        .eq('id', licenseId)
+        .single(),
+      'Não foi possível carregar o plano da licença',
+    );
+    const plan = getPlan(license.plan);
+    if (!plan) {
+      const error = new Error('Plano da licença não é reconhecido');
+      error.statusCode = 500;
+      throw error;
+    }
+
+    const expiresAt = plan.days === null
+      ? null
+      : new Date(
+        new Date(effectivePaidAt).getTime() + plan.days * 24 * 60 * 60 * 1000,
+      ).toISOString();
+    unwrap(
+      await supabase
+        .from('licenses')
+        .update({ expires_at: expiresAt })
+        .eq('id', licenseId),
+      'Não foi possível definir a validade da licença',
+    );
+
+    return licenseId;
   }
 
   async syncProviderPayment(providerPaymentId) {
@@ -157,7 +194,7 @@ class LicenseService {
       await supabase
         .from('payments')
         .select(
-          'id, payment_id, status, expires_at, amount, qr_code, qr_code_base64, license:licenses(license_key, plan, user_name, expires_at)',
+          'id, payment_id, status, expires_at, amount, qr_code, qr_code_base64, license:licenses(id, license_key, plan, user_name, expires_at)',
         )
         .eq('id', checkoutId)
         .single(),
@@ -173,7 +210,7 @@ class LicenseService {
         await supabase
           .from('payments')
           .select(
-            'id, payment_id, status, expires_at, amount, qr_code, qr_code_base64, license:licenses(license_key, plan, user_name, expires_at)',
+            'id, payment_id, status, expires_at, amount, qr_code, qr_code_base64, license:licenses(id, license_key, plan, user_name, expires_at)',
           )
           .eq('id', checkoutId)
           .single(),
@@ -190,6 +227,7 @@ class LicenseService {
       paymentId: payment.id,
       status: expired ? 'expired' : payment.status,
       amount: Number(payment.amount),
+      referenceCode: `EE${payment.license.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`,
       qrCode: payment.status === 'pending' ? payment.qr_code : null,
       qrCodeBase64: payment.status === 'pending' ? payment.qr_code_base64 : null,
       licenseKey: payment.status === 'paid' ? payment.license.license_key : null,
@@ -282,6 +320,38 @@ class LicenseService {
       approvedAt: new Date().toISOString(),
     });
     return this.getPaymentStatus(checkoutId);
+  }
+
+  async listAdminPayments(status = undefined) {
+    let query = getSupabase()
+      .from('payments')
+      .select(
+        'id, status, amount, created_at, paid_at, license:licenses(id, plan, user_email, user_name)',
+      )
+      .eq('provider', 'manual_pix')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (status) query = query.eq('status', status);
+
+    const payments = unwrap(
+      await query,
+      'Não foi possível carregar os pagamentos',
+    );
+
+    return payments.map((payment) => ({
+      paymentId: payment.id,
+      status: payment.status,
+      amount: Number(payment.amount),
+      referenceCode: payment.license?.id
+        ? `EE${payment.license.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+        : '',
+      createdAt: payment.created_at,
+      paidAt: payment.paid_at,
+      plan: payment.license?.plan || '',
+      userEmail: payment.license?.user_email || '',
+      userName: payment.license?.user_name || '',
+    }));
   }
 }
 

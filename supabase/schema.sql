@@ -21,7 +21,7 @@ create table if not exists public.licenses (
   constraint licenses_key_format_check
     check (license_key ~ '^EASY-[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$'),
   constraint licenses_plan_check
-    check (plan in ('monthly', 'quarterly', 'annual', 'lifetime')),
+    check (plan in ('daily', 'weekly', 'fortnightly', 'monthly', 'annual', 'lifetime')),
   constraint licenses_payment_status_check
     check (payment_status in ('pending', 'paid', 'expired', 'failed', 'refunded')),
   constraint licenses_max_devices_check
@@ -135,8 +135,10 @@ begin
   end if;
 
   v_expires_at := case v_license.plan
+    when 'daily' then v_paid_at + interval '1 day'
+    when 'weekly' then v_paid_at + interval '7 days'
+    when 'fortnightly' then v_paid_at + interval '15 days'
     when 'monthly' then v_paid_at + interval '30 days'
-    when 'quarterly' then v_paid_at + interval '90 days'
     when 'annual' then v_paid_at + interval '365 days'
     when 'lifetime' then null
   end;

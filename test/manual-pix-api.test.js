@@ -30,3 +30,31 @@ test('aprovação manual rejeita requisição sem segredo antes de acessar o ban
   assert.equal(body.success, false);
   assert.equal(body.error, 'Credencial administrativa inválida');
 });
+
+test('listagem administrativa rejeita requisição sem segredo', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/api/admin/payments?status=pending`);
+  const body = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(body.success, false);
+  assert.equal(body.error, 'Credencial administrativa inválida');
+});
+
+test('painel administrativo é servido sem expor a chave', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/admin/`);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(body, /Painel de pagamentos/);
+  assert.doesNotMatch(body, /uma-chave-administrativa-de-teste/);
+});

@@ -21,8 +21,9 @@ test('health e catálogo de planos respondem', async (context) => {
   assert.equal(health.paymentProvider, 'mock');
 
   const plans = await fetch(`http://127.0.0.1:${port}/api/plans`).then((r) => r.json());
-  assert.equal(plans.plans.length, 4);
-  assert.equal(plans.plans[0].id, 'monthly');
+  assert.equal(plans.plans.length, 6);
+  assert.equal(plans.plans[0].id, 'daily');
+  assert.equal(plans.plans[3].id, 'monthly');
 });
 
 test('create-payment está registrado e valida o body antes de acessar o banco', async (context) => {

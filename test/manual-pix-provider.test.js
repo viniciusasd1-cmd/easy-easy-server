@@ -18,16 +18,18 @@ const {
 test('gera payload PIX EMV válido e QR Code local', async () => {
   const provider = new PaymentProvider();
   const pix = await provider.createPix({
-    amount: 29.9,
+    amount: 24.9,
     description: 'Licença EASY&EASY',
     payerEmail: 'cliente@example.com',
     externalReference: 'b40423b2-932f-4d18-9b08-c3cbd4874e3d',
+    pixReference: 'EEB40423B2',
   });
 
   assert.match(pix.paymentId, /^manual_/);
   assert.match(pix.qrCode, /^000201/);
   assert.match(pix.qrCode, /BR\.GOV\.BCB\.PIX/i);
-  assert.match(pix.qrCode, /540529\.90/);
+  assert.match(pix.qrCode, /540524\.90/);
+  assert.match(pix.qrCode, /EEB40423B2/);
   assert.match(pix.qrCode, /6304[0-9A-F]{4}$/);
   assert.match(pix.qrCodeBase64, /^data:image\/png;base64,/);
   assert.equal(pix.status, 'pending');

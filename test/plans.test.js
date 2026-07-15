@@ -4,12 +4,20 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { PLANS, getPlan, generateLicenseKey } = require('../src/plans');
 
-test('expõe os quatro planos com valores esperados', () => {
-  assert.equal(PLANS.length, 4);
-  assert.equal(getPlan('monthly').price, 29.9);
-  assert.equal(getPlan('quarterly').price, 69.9);
-  assert.equal(getPlan('annual').price, 199.9);
-  assert.equal(getPlan('lifetime').price, 499.9);
+test('expõe os seis planos com valores e durações esperados', () => {
+  assert.equal(PLANS.length, 6);
+  assert.deepEqual(
+    PLANS.map(({ id, price, days }) => ({ id, price, days })),
+    [
+      { id: 'daily', price: 4.99, days: 1 },
+      { id: 'weekly', price: 24.9, days: 7 },
+      { id: 'fortnightly', price: 44.9, days: 15 },
+      { id: 'monthly', price: 79.9, days: 30 },
+      { id: 'annual', price: 699.9, days: 365 },
+      { id: 'lifetime', price: 1499, days: null },
+    ],
+  );
+  assert.equal(getPlan('quarterly'), null);
 });
 
 test('gera chaves EASY no formato seguro', () => {

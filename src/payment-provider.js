@@ -90,7 +90,7 @@ class PaymentProvider {
     }
   }
 
-  async createPix({ amount, description, payerEmail, externalReference }) {
+  async createPix({ amount, description, payerEmail, externalReference, pixReference }) {
     if (this.kind === 'mock') {
       const paymentId = `mock_${randomUUID()}`;
       const qrCode = `EASY&EASY|PIX-TESTE|${paymentId}|${amount.toFixed(2)}`;
@@ -112,7 +112,9 @@ class PaymentProvider {
 
     if (this.kind === 'manual_pix') {
       const paymentId = `manual_${randomUUID()}`;
-      const txid = externalReference.replace(/-/g, '').slice(0, 25);
+      const txid = String(pixReference || externalReference)
+        .replace(/[^A-Za-z0-9]/g, '')
+        .slice(0, 25);
       const qrCode = buildPixPayload({
         pixKey: config.pixKey,
         merchantName: config.pixMerchantName,
