@@ -13,7 +13,7 @@ services:
       - key: BASE_URL
         value: https://easy-easy-server.onrender.com
       - key: PAYMENT_PROVIDER
-        value: mercado_pago
+        value: manual_pix
       - key: ALLOW_ANY_EXTENSION_ORIGIN
         value: "false"
       - key: ALLOW_MOCK_PAYMENT_APPROVAL
@@ -22,9 +22,13 @@ services:
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
-      - key: MERCADO_PAGO_ACCESS_TOKEN
+      - key: PIX_KEY
         sync: false
-      - key: MERCADO_PAGO_WEBHOOK_SECRET
+      - key: PIX_MERCHANT_NAME
+        sync: false
+      - key: PIX_MERCHANT_CITY
+        sync: false
+      - key: MANUAL_APPROVAL_SECRET
         sync: false
       - key: ALLOWED_EXTENSION_IDS
         sync: false

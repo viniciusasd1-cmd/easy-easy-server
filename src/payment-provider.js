@@ -9,6 +9,68 @@ const {
 } = require('mercadopago');
 const { config } = require('./config');
 
+function emv(id, value) {
+  const text = String(value);
+  if (text.length > 99) {
+    throw new Error(`Campo PIX ${id} excede o limite de 99 caracteres.`);
+  }
+  return `${id}${String(text.length).padStart(2, '0')}${text}`;
+}
+
+function normalizePixText(value, maxLength) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 .\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function crc16(payload) {
+  let crc = 0xffff;
+  for (const byte of Buffer.from(payload, 'utf8')) {
+    crc ^= byte << 8;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc & 0x8000) !== 0 ? (crc << 1) ^ 0x1021 : crc << 1;
+      crc &= 0xffff;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function buildPixPayload({ pixKey, merchantName, merchantCity, amount, txid, description }) {
+  const key = String(pixKey || '').trim().slice(0, 77);
+  const name = normalizePixText(merchantName, 25) || 'EASY EASY';
+  const city = normalizePixText(merchantCity, 15) || 'SAO PAULO';
+  const reference = normalizePixText(txid, 25).replace(/[^A-Z0-9]/g, '') || '***';
+  const normalizedDescription = normalizePixText(description, 40);
+
+  let merchantAccount = emv('00', 'br.gov.bcb.pix') + emv('01', key);
+  const descriptionLimit = Math.max(0, 99 - merchantAccount.length - 4);
+  if (normalizedDescription && descriptionLimit > 0) {
+    merchantAccount += emv('02', normalizedDescription.slice(0, descriptionLimit));
+  }
+
+  const amountValue = Number(amount).toFixed(2);
+  const additionalData = emv('05', reference);
+  const withoutCrc =
+    emv('00', '01') +
+    emv('01', '11') +
+    emv('26', merchantAccount) +
+    emv('52', '0000') +
+    emv('53', '986') +
+    emv('54', amountValue) +
+    emv('58', 'BR') +
+    emv('59', name) +
+    emv('60', city) +
+    emv('62', additionalData) +
+    '6304';
+
+  return withoutCrc + crc16(withoutCrc);
+}
+
 function normalizeProviderStatus(status) {
   if (status === 'approved') return 'paid';
   if (['pending', 'in_process', 'authorized'].includes(status)) return 'pending';
@@ -48,6 +110,33 @@ class PaymentProvider {
       };
     }
 
+    if (this.kind === 'manual_pix') {
+      const paymentId = `manual_${randomUUID()}`;
+      const txid = externalReference.replace(/-/g, '').slice(0, 25);
+      const qrCode = buildPixPayload({
+        pixKey: config.pixKey,
+        merchantName: config.pixMerchantName,
+        merchantCity: config.pixMerchantCity,
+        amount,
+        txid,
+        description: config.pixDescription || description,
+      });
+      const qrCodeBase64 = await QRCode.toDataURL(qrCode, {
+        width: 320,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+      });
+
+      return {
+        paymentId,
+        status: 'pending',
+        qrCode,
+        qrCodeBase64,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        raw: { manual: true, id: paymentId, txid },
+      };
+    }
+
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     const response = await this.payment.create({
       body: {
@@ -79,8 +168,12 @@ class PaymentProvider {
   }
 
   async getPayment(paymentId) {
-    if (this.kind === 'mock') {
-      return { paymentId, status: 'pending', raw: { mock: true, id: paymentId } };
+    if (this.kind === 'mock' || this.kind === 'manual_pix') {
+      return {
+        paymentId,
+        status: 'pending',
+        raw: { manual: this.kind === 'manual_pix', mock: this.kind === 'mock', id: paymentId },
+      };
     }
 
     const response = await this.payment.get({ id: paymentId });
@@ -94,7 +187,7 @@ class PaymentProvider {
   }
 
   validateWebhook({ xSignature, xRequestId, dataId }) {
-    if (this.kind === 'mock') return true;
+    if (this.kind !== 'mercado_pago') return true;
 
     WebhookSignatureValidator.validate({
       xSignature,
@@ -106,4 +199,10 @@ class PaymentProvider {
   }
 }
 
-module.exports = { PaymentProvider, normalizeProviderStatus };
+module.exports = {
+  PaymentProvider,
+  buildPixPayload,
+  crc16,
+  normalizePixText,
+  normalizeProviderStatus,
+};

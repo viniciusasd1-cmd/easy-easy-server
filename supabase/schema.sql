@@ -44,7 +44,8 @@ create table if not exists public.payments (
   raw_response jsonb not null default '{}'::jsonb,
   constraint payments_amount_check check (amount > 0),
   constraint payments_method_check check (method = 'PIX'),
-  constraint payments_provider_check check (provider in ('mercado_pago', 'mock')),
+  constraint payments_provider_check
+    check (provider in ('mercado_pago', 'manual_pix', 'mock')),
   constraint payments_status_check
     check (status in ('pending', 'paid', 'expired', 'failed', 'refunded'))
 );

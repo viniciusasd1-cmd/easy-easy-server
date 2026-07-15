@@ -1,6 +1,6 @@
 # EASY&EASY — API de pagamentos e licenças
 
-Backend Node.js/Express para vender a extensão via PIX, confirmar pagamentos pelo Mercado Pago e controlar licenças/dispositivos no Supabase.
+Backend Node.js/Express para vender a extensão via PIX, registrar pagamentos e controlar licenças e dispositivos no Supabase.
 
 ## Configuração local
 
@@ -13,71 +13,88 @@ Backend Node.js/Express para vender a extensão via PIX, confirmar pagamentos pe
 
 O servidor inicia em `http://localhost:4000`. Verifique com `GET /health`.
 
-## Teste completo sem cobrar PIX real
+## PIX manual para produção
 
-Crie um pagamento pela extensão. Com o UUID retornado no campo `paymentId`, aprove-o manualmente:
+O modo `manual_pix` gera o payload PIX copia e cola e o QR Code no próprio servidor, sem Mercado Pago ou outro gateway. Depois de conferir o recebimento no aplicativo do banco, o administrador confirma o pagamento usando um segredo privado. A licença só é revelada após essa confirmação.
 
-```powershell
-Invoke-RestMethod -Method Post -Uri "http://localhost:4000/api/dev/payments/UUID_DO_CHECKOUT/approve"
+Antes do primeiro deploy em um banco já existente, execute no SQL Editor do Supabase:
+
+```text
+supabase/enable-manual-pix-provider.sql
 ```
 
-Essa rota só existe quando:
-
-- `NODE_ENV` não é `production`;
-- `PAYMENT_PROVIDER=mock`;
-- `ALLOW_MOCK_PAYMENT_APPROVAL=true`.
-
-## Mercado Pago real
-
-Configure:
+Configure no Render:
 
 ```env
 NODE_ENV=production
-PAYMENT_PROVIDER=mercado_pago
-MERCADO_PAGO_ACCESS_TOKEN=APP_USR-...
-MERCADO_PAGO_WEBHOOK_SECRET=...
-BASE_URL=https://seu-servico.onrender.com
+PAYMENT_PROVIDER=manual_pix
+PIX_KEY=sua-chave-pix
+PIX_MERCHANT_NAME=EASY EASY
+PIX_MERCHANT_CITY=SAO PAULO
+PIX_DESCRIPTION=LICENCA EASY EASY
+MANUAL_APPROVAL_SECRET=um-segredo-aleatorio-com-pelo-menos-32-caracteres
 ALLOW_ANY_EXTENSION_ORIGIN=false
 ALLOWED_EXTENSION_IDS=id_da_extensao
 ```
 
-No painel do Mercado Pago, cadastre o webhook de pagamentos em:
+`PIX_MERCHANT_NAME` aceita até 25 caracteres e `PIX_MERCHANT_CITY` até 15. A chave PIX e o segredo administrativo nunca devem ser enviados ao GitHub ou incluídos na extensão.
 
-```text
-https://seu-servico.onrender.com/api/webhook/pix
+### Confirmar um pagamento recebido
+
+Use o UUID retornado pela API no campo `paymentId`. No PowerShell:
+
+```powershell
+$headers = @{ 'X-Admin-Key' = 'SEU_SEGREDO_ADMINISTRATIVO' }
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'https://easy-easy-server.onrender.com/api/admin/payments/UUID_DO_PAGAMENTO/approve' `
+  -Headers $headers
 ```
 
-Use credenciais de teste antes de ativar produção. O servidor valida a assinatura do webhook e consulta o pagamento diretamente no Mercado Pago antes de liberar a licença.
+A confirmação é idempotente: repetir a aprovação de um pagamento já confirmado retorna a licença existente, sem criar outra cobrança.
+
+## Teste completo sem cobrar PIX real
+
+Com `PAYMENT_PROVIDER=mock`, crie um pagamento e aprove o UUID retornado:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri 'http://localhost:4000/api/dev/payments/UUID_DO_PAGAMENTO/approve'
+```
+
+Essa rota só existe fora de produção quando `ALLOW_MOCK_PAYMENT_APPROVAL=true`.
+
+## Mercado Pago opcional
+
+O provedor anterior continua disponível. Para utilizá-lo, configure `PAYMENT_PROVIDER=mercado_pago`, `MERCADO_PAGO_ACCESS_TOKEN` e `MERCADO_PAGO_WEBHOOK_SECRET`. O webhook é `POST /api/webhook/pix`.
 
 ## Deploy no Render
 
 - O repositório inclui `render.yaml`; crie um Blueprint no Render apontando para o repositório.
 - Runtime: Node; build: `npm ci`; start: `npm start`; health check: `/health`.
 - Preencha no painel os valores marcados com `sync: false`; nunca envie `.env` ao Git.
-- Use `.env.production.example` como checklist das variáveis de produção.
+- Use `.env.production.example` como checklist.
 
-O `background.js` da extensão já usa `https://easy-easy-server.onrender.com` por padrão. Para desenvolvimento local, grave `http://localhost:4000` em `apiBaseUrl` no `chrome.storage.local`. O manifesto autoriza ambas as origens.
-
-A Public Key do Mercado Pago é normalmente destinada ao frontend. O fluxo PIX atual é criado integralmente pelo backend e exige o Access Token e a assinatura secreta do webhook.
+O `background.js` da extensão usa `https://easy-easy-server.onrender.com` por padrão. Para desenvolvimento local, grave `http://localhost:4000` em `apiBaseUrl` no `chrome.storage.local`.
 
 ## Segurança aplicada
 
 - Chave secreta do Supabase apenas no backend.
-- RLS ativado e acesso de `anon`/`authenticated` revogado nas tabelas.
-- Operações críticas atômicas em funções SQL com bloqueio de linha.
-- Webhook assinado e reconciliado com a API do Mercado Pago.
+- RLS ativado e acesso de `anon` e `authenticated` revogado nas tabelas.
+- Confirmação do pagamento e validade da licença atualizadas atomicamente no banco.
+- Aprovação manual protegida por segredo de no mínimo 32 caracteres e comparação resistente a timing attacks.
+- Rate limiting no endpoint administrativo.
 - Chave de licença revelada somente após pagamento confirmado.
 - Limite de dispositivos verificado no banco.
 - CORS restrito aos IDs configurados da extensão em produção.
-- Rate limiting e validação de entrada em todos os endpoints sensíveis.
 
 ## Endpoints
 
 - `GET /api/plans`
 - `POST /api/create-payment`
 - `GET /api/check-payment/:paymentId`
+- `POST /api/admin/payments/:paymentId/approve` — somente `manual_pix`
 - `POST /api/activate`
 - `POST /api/validate`
 - `GET /api/my-license`
-- `POST /api/webhook/pix`
-- `POST /api/login` (compatibilidade)
+- `POST /api/webhook/pix` — somente necessário para Mercado Pago
+- `POST /api/login` — compatibilidade

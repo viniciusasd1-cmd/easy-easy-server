@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
 const { z } = require('zod');
+const { timingSafeEqual } = require('node:crypto');
 const { config, validateConfig } = require('./src/config');
 const { PLANS } = require('./src/plans');
 const { PaymentProvider } = require('./src/payment-provider');
@@ -41,6 +42,8 @@ app.use(
       'X-Device-Id',
       'X-Request-Id',
       'X-Signature',
+      'X-Admin-Key',
+      'Authorization',
     ],
   }),
 );
@@ -65,10 +68,36 @@ const paymentLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
 });
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
 app.use('/api', apiLimiter);
 
 const asyncRoute = (handler) => (req, res, next) =>
   Promise.resolve(handler(req, res, next)).catch(next);
+
+function requireManualApprovalSecret(req, res, next) {
+  const bearer = req.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const provided = req.get('x-admin-key') || bearer || '';
+  const expected = config.manualApprovalSecret;
+  const providedBuffer = Buffer.from(provided, 'utf8');
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  const valid =
+    providedBuffer.length === expectedBuffer.length &&
+    providedBuffer.length > 0 &&
+    timingSafeEqual(providedBuffer, expectedBuffer);
+
+  if (!valid) {
+    return res.status(401).json({
+      success: false,
+      error: 'Credencial administrativa inválida',
+    });
+  }
+  return next();
+}
 
 const paymentSchema = z.object({
   planId: z.enum(['monthly', 'quarterly', 'annual', 'lifetime']),
@@ -204,6 +233,23 @@ app.post(
     return res.status(200).json({ received: true });
   }),
 );
+
+if (config.paymentProvider === 'manual_pix') {
+  app.post(
+    '/api/admin/payments/:paymentId/approve',
+    adminLimiter,
+    requireManualApprovalSecret,
+    asyncRoute(async (req, res) => {
+      const paymentId = z.uuid().parse(req.params.paymentId);
+      const data = await licenseService.approveManualPayment(paymentId);
+      res.json({
+        success: true,
+        message: 'Pagamento confirmado e licença liberada',
+        data,
+      });
+    }),
+  );
+}
 
 if (
   config.paymentProvider === 'mock' &&

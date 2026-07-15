@@ -164,7 +164,10 @@ class LicenseService {
       'Pagamento não encontrado',
     );
 
-    if (payment.status === 'pending' && this.paymentProvider.kind !== 'mock') {
+    if (
+      payment.status === 'pending' &&
+      this.paymentProvider.kind === 'mercado_pago'
+    ) {
       await this.syncProviderPayment(payment.payment_id);
       payment = unwrap(
         await supabase
@@ -249,6 +252,34 @@ class LicenseService {
     await this.confirmProviderPayment(payment.payment_id, {
       mock: true,
       approvedManually: true,
+    });
+    return this.getPaymentStatus(checkoutId);
+  }
+
+  async approveManualPayment(checkoutId) {
+    const payment = unwrap(
+      await getSupabase()
+        .from('payments')
+        .select('payment_id, status')
+        .eq('id', checkoutId)
+        .eq('provider', 'manual_pix')
+        .single(),
+      'Pagamento PIX manual não encontrado',
+    );
+
+    if (payment.status === 'paid') {
+      return this.getPaymentStatus(checkoutId);
+    }
+    if (payment.status !== 'pending') {
+      const error = new Error(`Pagamento não pode ser aprovado no estado ${payment.status}`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    await this.confirmProviderPayment(payment.payment_id, {
+      manual: true,
+      approvedManually: true,
+      approvedAt: new Date().toISOString(),
     });
     return this.getPaymentStatus(checkoutId);
   }

@@ -29,6 +29,13 @@ const config = Object.freeze({
     (nodeEnv === 'production' ? 'mercado_pago' : 'mock'),
   mercadoPagoAccessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || '',
   mercadoPagoWebhookSecret: process.env.MERCADO_PAGO_WEBHOOK_SECRET || '',
+  pixKey: String(process.env.PIX_KEY || '').trim(),
+  pixMerchantName: String(process.env.PIX_MERCHANT_NAME || 'EASY EASY').trim(),
+  pixMerchantCity: String(process.env.PIX_MERCHANT_CITY || 'SAO PAULO').trim(),
+  pixDescription: String(
+    process.env.PIX_DESCRIPTION || 'LICENCA EASY EASY',
+  ).trim(),
+  manualApprovalSecret: process.env.MANUAL_APPROVAL_SECRET || '',
   allowedExtensionIds: parseExtensionIds(process.env.ALLOWED_EXTENSION_IDS),
   allowAnyExtensionOrigin: asBoolean(
     process.env.ALLOW_ANY_EXTENSION_ORIGIN,
@@ -54,14 +61,31 @@ function validateConfig() {
     }
   }
 
+  if (config.paymentProvider === 'manual_pix') {
+    if (!config.pixKey) missing.push('PIX_KEY');
+    if (!config.pixMerchantName) missing.push('PIX_MERCHANT_NAME');
+    if (!config.pixMerchantCity) missing.push('PIX_MERCHANT_CITY');
+    if (!config.manualApprovalSecret) missing.push('MANUAL_APPROVAL_SECRET');
+    if (
+      config.isProduction &&
+      config.manualApprovalSecret.length < 32
+    ) {
+      throw new Error(
+        'MANUAL_APPROVAL_SECRET deve ter pelo menos 32 caracteres em produção.',
+      );
+    }
+  }
+
   if (config.isProduction && config.allowAnyExtensionOrigin) {
     throw new Error(
       'ALLOW_ANY_EXTENSION_ORIGIN deve ser false em produção. Configure ALLOWED_EXTENSION_IDS.',
     );
   }
 
-  if (!['mock', 'mercado_pago'].includes(config.paymentProvider)) {
-    throw new Error('PAYMENT_PROVIDER deve ser mock ou mercado_pago.');
+  if (!['mock', 'manual_pix', 'mercado_pago'].includes(config.paymentProvider)) {
+    throw new Error(
+      'PAYMENT_PROVIDER deve ser mock, manual_pix ou mercado_pago.',
+    );
   }
 
   if (missing.length > 0) {
