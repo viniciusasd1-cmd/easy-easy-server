@@ -9,6 +9,7 @@ process.env.PIX_MERCHANT_NAME = 'EASY EASY';
 process.env.PIX_MERCHANT_CITY = 'SAO PAULO';
 process.env.MANUAL_APPROVAL_SECRET = 'uma-chave-administrativa-de-teste';
 process.env.ALLOW_ANY_EXTENSION_ORIGIN = 'true';
+process.env.BASE_URL = 'https://easy-easy-server.onrender.com';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -72,4 +73,36 @@ test('painel administrativo possui relógio regressivo de validade', async (cont
   assert.match(body, /Duração contratada/);
   assert.match(body, /Começa após a aprovação/);
   assert.match(body, /setInterval\(updateCountdowns, 1000\)/);
+});
+
+test('CORS permite requisições do próprio painel administrativo', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/api/admin/payments`, {
+    headers: { Origin: 'https://easy-easy-server.onrender.com' },
+  });
+
+  assert.equal(response.status, 401);
+  assert.equal(
+    response.headers.get('access-control-allow-origin'),
+    'https://easy-easy-server.onrender.com',
+  );
+});
+
+test('CORS rejeita outra origem com erro 403', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/api/admin/payments`, {
+    headers: { Origin: 'https://site-nao-autorizado.example' },
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(body.error, 'Origem não autorizada');
 });

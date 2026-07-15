@@ -17,6 +17,13 @@ validateConfig();
 const paymentProvider = new PaymentProvider();
 const licenseService = new LicenseService(paymentProvider);
 const app = express();
+const appOrigin = new URL(config.baseUrl).origin;
+
+function corsRejection(message) {
+  const error = new Error(message);
+  error.statusCode = 403;
+  return error;
+}
 
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: false }));
@@ -24,6 +31,7 @@ app.use(
   cors({
     origin(origin, callback) {
       if (!origin) return callback(null, true);
+      if (origin === appOrigin) return callback(null, true);
       if (/^https?:\/\/localhost(?::\d+)?$/.test(origin)) {
         return callback(null, true);
       }
@@ -32,9 +40,12 @@ app.use(
         const allowed =
           config.allowAnyExtensionOrigin ||
           config.allowedExtensionIds.includes(extensionId);
-        return callback(allowed ? null : new Error('Extensão não autorizada'), allowed);
+        return callback(
+          allowed ? null : corsRejection('Extensão não autorizada'),
+          allowed,
+        );
       }
-      return callback(new Error('Origem não autorizada'), false);
+      return callback(corsRejection('Origem não autorizada'), false);
     },
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: [
