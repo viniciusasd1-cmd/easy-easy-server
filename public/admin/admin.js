@@ -17,6 +17,7 @@ const elements = {
 
 let adminKey = '';
 let refreshTimer = null;
+let countdownTimer = null;
 
 function formatMoney(value) {
   return new Intl.NumberFormat('pt-BR', {
@@ -43,6 +44,35 @@ function statusLabel(status) {
   }[status] || status;
 }
 
+function durationLabel(payment) {
+  if (payment.plan === 'lifetime') return 'Vitalício';
+  if (!Number.isFinite(payment.durationDays)) return 'Não informada';
+  if (payment.durationDays === 1) return '24 horas';
+  return `${payment.durationDays} dias`;
+}
+
+function countdownLabel(expiresAt) {
+  if (!expiresAt) return 'Sem expiração';
+  const remaining = new Date(expiresAt).getTime() - Date.now();
+  if (remaining <= 0) return 'Expirada';
+
+  const totalSeconds = Math.floor(remaining / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const clock = [hours, minutes, seconds]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':');
+  return days > 0 ? `${days}d ${clock}` : clock;
+}
+
+function updateCountdowns() {
+  document.querySelectorAll('[data-countdown]').forEach((element) => {
+    element.textContent = countdownLabel(element.dataset.countdown);
+  });
+}
+
 async function adminRequest(path, options = {}) {
   const response = await fetch(path, {
     ...options,
@@ -66,6 +96,8 @@ function showLogin(message = '') {
   adminKey = '';
   clearInterval(refreshTimer);
   refreshTimer = null;
+  clearInterval(countdownTimer);
+  countdownTimer = null;
   elements.login.hidden = false;
   elements.dashboard.hidden = true;
   elements.logout.hidden = true;
@@ -96,9 +128,21 @@ function renderPayments(payments) {
     top.append(identity, badge);
 
     const details = document.createElement('dl');
+    const countdown = document.createElement('span');
+    if (payment.status === 'paid') {
+      if (payment.expiresAt) countdown.dataset.countdown = payment.expiresAt;
+      countdown.textContent = countdownLabel(payment.expiresAt);
+    } else {
+      countdown.textContent = 'Começa após a aprovação';
+    }
+
     const rows = [
       ['Valor', formatMoney(payment.amount)],
-      ['Plano', payment.plan],
+      ['Plano', payment.planName || payment.plan],
+      ['Duração contratada', durationLabel(payment)],
+      ['Tempo restante', countdown],
+      ...(payment.paidAt ? [['Aprovado em', formatDate(payment.paidAt)]] : []),
+      ...(payment.expiresAt ? [['Válida até', formatDate(payment.expiresAt)]] : []),
       ['Criado em', formatDate(payment.createdAt)],
       ['Identificador', payment.referenceCode || '—'],
       ['Pagamento', payment.paymentId],
@@ -108,7 +152,8 @@ function renderPayments(payments) {
       const term = document.createElement('dt');
       const description = document.createElement('dd');
       term.textContent = label;
-      description.textContent = value;
+      if (value instanceof Node) description.append(value);
+      else description.textContent = value;
       wrapper.append(term, description);
       details.append(wrapper);
     }
@@ -124,6 +169,7 @@ function renderPayments(payments) {
     }
     elements.payments.append(card);
   }
+  updateCountdowns();
 }
 
 async function loadPayments() {
@@ -187,6 +233,8 @@ async function enterDashboard() {
     elements.loginMessage.textContent = '';
     clearInterval(refreshTimer);
     refreshTimer = setInterval(() => void loadPayments(), 20000);
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(updateCountdowns, 1000);
   } finally {
     elements.enter.disabled = false;
   }
@@ -199,4 +247,7 @@ elements.adminKey.addEventListener('keydown', (event) => {
 elements.logout.addEventListener('click', () => showLogin());
 elements.refresh.addEventListener('click', () => void loadPayments());
 elements.statusFilter.addEventListener('change', () => void loadPayments());
-window.addEventListener('pagehide', () => clearInterval(refreshTimer));
+window.addEventListener('pagehide', () => {
+  clearInterval(refreshTimer);
+  clearInterval(countdownTimer);
+});

@@ -326,7 +326,7 @@ class LicenseService {
     let query = getSupabase()
       .from('payments')
       .select(
-        'id, status, amount, created_at, paid_at, license:licenses(id, plan, user_email, user_name)',
+        'id, status, amount, created_at, paid_at, license:licenses(id, plan, user_email, user_name, expires_at)',
       )
       .eq('provider', 'manual_pix')
       .order('created_at', { ascending: false })
@@ -339,19 +339,25 @@ class LicenseService {
       'Não foi possível carregar os pagamentos',
     );
 
-    return payments.map((payment) => ({
-      paymentId: payment.id,
-      status: payment.status,
-      amount: Number(payment.amount),
-      referenceCode: payment.license?.id
-        ? `EE${payment.license.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
-        : '',
-      createdAt: payment.created_at,
-      paidAt: payment.paid_at,
-      plan: payment.license?.plan || '',
-      userEmail: payment.license?.user_email || '',
-      userName: payment.license?.user_name || '',
-    }));
+    return payments.map((payment) => {
+      const plan = getPlan(payment.license?.plan);
+      return {
+        paymentId: payment.id,
+        status: payment.status,
+        amount: Number(payment.amount),
+        referenceCode: payment.license?.id
+          ? `EE${payment.license.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+          : '',
+        createdAt: payment.created_at,
+        paidAt: payment.paid_at,
+        expiresAt: payment.license?.expires_at || null,
+        plan: payment.license?.plan || '',
+        planName: plan?.name || payment.license?.plan || '',
+        durationDays: plan?.days ?? null,
+        userEmail: payment.license?.user_email || '',
+        userName: payment.license?.user_name || '',
+      };
+    });
   }
 }
 

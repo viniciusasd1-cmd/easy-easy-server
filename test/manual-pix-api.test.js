@@ -58,3 +58,18 @@ test('painel administrativo é servido sem expor a chave', async (context) => {
   assert.match(body, /Painel de pagamentos/);
   assert.doesNotMatch(body, /uma-chave-administrativa-de-teste/);
 });
+
+test('painel administrativo possui relógio regressivo de validade', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/admin/admin.js`);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(body, /Duração contratada/);
+  assert.match(body, /Começa após a aprovação/);
+  assert.match(body, /setInterval\(updateCountdowns, 1000\)/);
+});
