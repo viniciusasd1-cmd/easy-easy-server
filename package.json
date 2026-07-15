@@ -1,0 +1,26 @@
+{
+  "name": "easy-easy-license-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API de pagamentos PIX e licenciamento da extensão EASY&EASY",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.110.5",
+    "cors": "2.8.6",
+    "dotenv": "17.4.2",
+    "express": "5.2.1",
+    "express-rate-limit": "8.5.2",
+    "helmet": "8.3.0",
+    "mercadopago": "3.2.0",
+    "qrcode": "1.5.4",
+    "zod": "4.4.3"
+  }
+}

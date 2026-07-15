@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: easy-easy-server
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BASE_URL
+        value: https://easy-easy-server.onrender.com
+      - key: PAYMENT_PROVIDER
+        value: mercado_pago
+      - key: ALLOW_ANY_EXTENSION_ORIGIN
+        value: "false"
+      - key: ALLOW_MOCK_PAYMENT_APPROVAL
+        value: "false"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: MERCADO_PAGO_ACCESS_TOKEN
+        sync: false
+      - key: MERCADO_PAGO_WEBHOOK_SECRET
+        sync: false
+      - key: ALLOWED_EXTENSION_IDS
+        sync: false

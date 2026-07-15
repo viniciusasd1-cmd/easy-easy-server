@@ -1,0 +1,283 @@
+'use strict';
+
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
+const { z } = require('zod');
+const { config, validateConfig } = require('./src/config');
+const { PLANS } = require('./src/plans');
+const { PaymentProvider } = require('./src/payment-provider');
+const { LicenseService } = require('./src/license-service');
+
+validateConfig();
+
+const paymentProvider = new PaymentProvider();
+const licenseService = new LicenseService(paymentProvider);
+const app = express();
+
+app.set('trust proxy', 1);
+app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (/^https?:\/\/localhost(?::\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+      if (origin.startsWith('chrome-extension://')) {
+        const extensionId = origin.slice('chrome-extension://'.length);
+        const allowed =
+          config.allowAnyExtensionOrigin ||
+          config.allowedExtensionIds.includes(extensionId);
+        return callback(allowed ? null : new Error('Extensão não autorizada'), allowed);
+      }
+      return callback(new Error('Origem não autorizada'), false);
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'X-License-Key',
+      'X-Device-Id',
+      'X-Request-Id',
+      'X-Signature',
+    ],
+  }),
+);
+app.use(express.json({ limit: '100kb' }));
+
+if (!config.isProduction) {
+  app.use((req, _res, next) => {
+    console.log(`➡️  ${req.method} ${req.originalUrl}`);
+    next();
+  });
+}
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
+app.use('/api', apiLimiter);
+
+const asyncRoute = (handler) => (req, res, next) =>
+  Promise.resolve(handler(req, res, next)).catch(next);
+
+const paymentSchema = z.object({
+  planId: z.enum(['monthly', 'quarterly', 'annual', 'lifetime']),
+  userEmail: z.email('Informe um e-mail válido').max(254),
+  userName: z.string().trim().max(80).optional().default(''),
+});
+const licenseSchema = z.object({
+  licenseKey: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^EASY-[A-Z0-9]{4}(?:-[A-Z0-9]{4}){3}$/, 'Formato de chave inválido'),
+  deviceId: z.string().trim().min(8).max(128),
+  userAgent: z.string().max(500).optional().default(''),
+});
+
+app.get('/health', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'easy-easy-license-server',
+    paymentProvider: config.paymentProvider,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/plans', (_req, res) => {
+  res.json({ plans: PLANS });
+});
+
+console.log('📋 Registrando rota: POST /api/create-payment');
+app.post(
+  '/api/create-payment',
+  paymentLimiter,
+  (_req, _res, next) => {
+    console.log('🔍 PaymentLimiter passou');
+    next();
+  },
+  async (req, res, next) => {
+    console.log('📥 POST /api/create-payment recebido');
+    console.log('📦 Body:', req.body);
+
+    try {
+      const input = paymentSchema.parse(req.body);
+      console.log('✅ Schema validado:', {
+        planId: input.planId,
+        userEmail: input.userEmail,
+        userName: input.userName,
+      });
+
+      const data = await licenseService.createPayment(input);
+      console.log('✅ Pagamento criado:', {
+        paymentId: data.paymentId,
+        plan: data.plan,
+        status: data.status,
+      });
+
+      return res.status(201).json({ success: true, data });
+    } catch (error) {
+      console.error('❌ Erro em /api/create-payment:', error.message);
+      console.error('❌ Stack:', error.stack);
+      return next(error);
+    }
+  },
+);
+
+app.get(
+  '/api/check-payment/:paymentId',
+  asyncRoute(async (req, res) => {
+    const paymentId = z.uuid().parse(req.params.paymentId);
+    const data = await licenseService.getPaymentStatus(paymentId);
+    res.json(data);
+  }),
+);
+
+app.post(
+  '/api/activate',
+  asyncRoute(async (req, res) => {
+    const input = licenseSchema.parse(req.body);
+    const data = await licenseService.activate(input);
+    res.json(data);
+  }),
+);
+
+app.post(
+  '/api/validate',
+  asyncRoute(async (req, res) => {
+    const input = licenseSchema.parse(req.body);
+    const data = await licenseService.activate(input);
+    res.json(data);
+  }),
+);
+
+// Compatibilidade com versões anteriores da extensão.
+app.post(
+  '/api/login',
+  asyncRoute(async (req, res) => {
+    const input = licenseSchema.parse({
+      licenseKey: req.body.licenseKey || req.body.key,
+      deviceId: req.body.deviceId || req.body.deviceid,
+      userAgent: req.body.userAgent || req.get('user-agent') || '',
+    });
+    const data = await licenseService.activate(input);
+    res.json(data);
+  }),
+);
+
+app.get(
+  '/api/my-license',
+  asyncRoute(async (req, res) => {
+    const input = licenseSchema.parse({
+      licenseKey: req.get('x-license-key'),
+      deviceId: req.get('x-device-id'),
+      userAgent: req.get('user-agent') || '',
+    });
+    const data = await licenseService.getMyLicense(input);
+    res.json(data);
+  }),
+);
+
+app.post(
+  '/api/webhook/pix',
+  asyncRoute(async (req, res) => {
+    const dataId = req.query['data.id'] || req.body?.data?.id;
+    if (!dataId) return res.status(200).json({ received: true });
+
+    paymentProvider.validateWebhook({
+      xSignature: req.get('x-signature'),
+      xRequestId: req.get('x-request-id'),
+      dataId,
+    });
+
+    await licenseService.syncProviderPayment(String(dataId));
+    return res.status(200).json({ received: true });
+  }),
+);
+
+if (
+  config.paymentProvider === 'mock' &&
+  config.allowMockPaymentApproval &&
+  !config.isProduction
+) {
+  app.post(
+    '/api/dev/payments/:paymentId/approve',
+    asyncRoute(async (req, res) => {
+      const paymentId = z.uuid().parse(req.params.paymentId);
+      const data = await licenseService.approveMockPayment(paymentId);
+      res.json({ success: true, data });
+    }),
+  );
+}
+
+if (!config.isProduction) {
+  app.get('/api/routes', (_req, res) => {
+    const router = app.router || app._router;
+    const routes = (router?.stack || [])
+      .filter((layer) => layer.route)
+      .flatMap((layer) =>
+        Object.keys(layer.route.methods).map((method) => ({
+          path: layer.route.path,
+          methods: [method.toUpperCase()],
+        })),
+      );
+
+    res.json({ routes });
+  });
+}
+
+app.use((req, res) => {
+  console.warn(`⚠️ Endpoint não encontrado: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint não encontrado',
+    ...(config.isProduction
+      ? {}
+      : {
+          method: req.method,
+          path: req.originalUrl,
+          routesUrl: '/api/routes',
+        }),
+  });
+});
+
+app.use((error, req, res, _next) => {
+  if (error instanceof z.ZodError) {
+    console.error(`❌ Validação rejeitada em ${req.method} ${req.originalUrl}:`, error.issues);
+    return res.status(400).json({
+      success: false,
+      error: error.issues[0]?.message || 'Dados inválidos',
+      details: error.issues,
+    });
+  }
+
+  console.error(`❌ Erro da API em ${req.method} ${req.originalUrl}:`, error);
+  const statusCode = error.statusCode || 500;
+  return res.status(statusCode).json({
+    success: false,
+    error: statusCode >= 500 ? 'Erro interno do servidor' : error.message,
+    code: error.code || undefined,
+    ...(!config.isProduction && error.message
+      ? { details: error.message }
+      : {}),
+  });
+});
+
+if (require.main === module) {
+  app.listen(config.port, () => {
+    console.log(`🚀 EASY&EASY API em ${config.baseUrl}`);
+    console.log(`💳 Provedor de pagamento: ${config.paymentProvider}`);
+  });
+}
+
+module.exports = { app };
