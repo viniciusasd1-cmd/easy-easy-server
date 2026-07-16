@@ -1,105 +1,4 @@
--- EASY&EASY — banco de licenças e pagamentos
--- Execute no SQL Editor do Supabase antes de iniciar o servidor.
-
-create extension if not exists pgcrypto;
-
-create table if not exists public.licenses (
-  id uuid primary key default gen_random_uuid(),
-  license_key text unique not null,
-  plan text not null,
-  user_email text,
-  user_phone text,
-  user_name text,
-  device_id text,
-  created_at timestamptz not null default now(),
-  expires_at timestamptz,
-  last_validated_at timestamptz,
-  is_active boolean not null default true,
-  max_devices integer not null default 1,
-  activated_devices text[] not null default '{}',
-  payment_id text,
-  payment_status text not null default 'pending',
-  constraint licenses_key_format_check
-    check (license_key ~ '^EASY-[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$'),
-  constraint licenses_plan_check
-    check (plan in ('daily', 'weekly', 'fortnightly', 'monthly', 'annual', 'lifetime')),
-  constraint licenses_user_phone_format
-    check (user_phone is null or user_phone ~ '^\+55[0-9]{10,11}$'),
-  constraint licenses_payment_status_check
-    check (payment_status in ('pending', 'paid', 'expired', 'failed', 'refunded')),
-  constraint licenses_max_devices_check
-    check (max_devices between 1 and 10)
-);
-
-create table if not exists public.payments (
-  id uuid primary key default gen_random_uuid(),
-  license_id uuid not null references public.licenses(id) on delete cascade,
-  amount numeric(10, 2) not null,
-  method text not null default 'PIX',
-  provider text not null default 'mercado_pago',
-  payment_id text unique not null,
-  qr_code text,
-  qr_code_base64 text,
-  status text not null default 'pending',
-  created_at timestamptz not null default now(),
-  expires_at timestamptz,
-  paid_at timestamptz,
-  raw_response jsonb not null default '{}'::jsonb,
-  constraint payments_amount_check check (amount > 0),
-  constraint payments_method_check check (method = 'PIX'),
-  constraint payments_provider_check
-    check (provider in ('mercado_pago', 'manual_pix', 'mock')),
-  constraint payments_status_check
-    check (status in ('pending', 'paid', 'expired', 'failed', 'refunded'))
-);
-
-create table if not exists public.activations (
-  id uuid primary key default gen_random_uuid(),
-  license_id uuid not null references public.licenses(id) on delete cascade,
-  device_id text not null,
-  user_agent text,
-  activated_at timestamptz not null default now(),
-  last_used_at timestamptz not null default now(),
-  is_active boolean not null default true,
-  constraint activations_device_id_check check (length(device_id) between 8 and 128),
-  constraint activations_license_device_unique unique (license_id, device_id)
-);
-
-create index if not exists payments_license_id_idx
-  on public.payments (license_id);
-create index if not exists activations_license_id_idx
-  on public.activations (license_id);
-create index if not exists activations_device_id_idx
-  on public.activations (device_id);
-create index if not exists payments_pending_created_at_idx
-  on public.payments (created_at)
-  where status = 'pending';
-create index if not exists licenses_active_validation_idx
-  on public.licenses (last_validated_at)
-  where is_active = true and payment_status = 'paid';
-
-alter table public.licenses enable row level security;
-alter table public.payments enable row level security;
-alter table public.activations enable row level security;
-alter table public.licenses force row level security;
-alter table public.payments force row level security;
-alter table public.activations force row level security;
-
--- Nenhuma tabela de licenciamento é acessível diretamente pela extensão.
-revoke all on table public.licenses from anon, authenticated;
-revoke all on table public.payments from anon, authenticated;
-revoke all on table public.activations from anon, authenticated;
-
--- Supabase passou a exigir grants explícitos para a Data API em projetos novos.
-grant usage on schema public to service_role;
-grant select, insert, update, delete on table public.licenses to service_role;
-grant select, insert, update, delete on table public.payments to service_role;
-grant select, insert, update, delete on table public.activations to service_role;
-
--- Chaves secretas modernas do backend assumem o papel service_role. Estes
--- grants devem ser reaplicados ao atualizar uma instalação criada antes da
--- mudança de privilégios explícitos da Data API.
-grant execute on all functions in schema public to service_role;
+-- O pagamento libera a chave, mas o prazo começa somente na primeira ativação.
 
 create or replace function public.confirm_payment(
   p_provider_payment_id text,
@@ -231,7 +130,6 @@ begin
     end if;
   end if;
 
-  -- O prazo contratado começa apenas na primeira ativação bem-sucedida.
   if v_license.expires_at is null and v_license.plan <> 'lifetime' then
     v_license.expires_at := case v_license.plan
       when 'daily' then now() + interval '1 day'
@@ -286,7 +184,3 @@ grant execute on function public.confirm_payment(text, timestamptz, jsonb)
   to service_role;
 grant execute on function public.activate_license(text, text, text)
   to service_role;
-
-comment on table public.licenses is 'Licenças EASY&EASY; acesso exclusivo pelo backend.';
-comment on table public.payments is 'Pagamentos PIX e dados de reconciliação do provedor.';
-comment on table public.activations is 'Dispositivos ativados por licença.';

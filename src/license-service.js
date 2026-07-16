@@ -3,6 +3,12 @@
 const { getPlan, generateLicenseKey } = require('./plans');
 const { getSupabase, unwrap } = require('./supabase');
 
+function calculateFirstExpiration(planId, now = Date.now()) {
+  const plan = getPlan(planId);
+  if (!plan || plan.days === null) return null;
+  return new Date(now + plan.days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 class LicenseService {
   constructor(paymentProvider) {
     this.paymentProvider = paymentProvider;
@@ -122,35 +128,25 @@ class LicenseService {
     });
     const licenseId = unwrap(result, 'Não foi possível confirmar o pagamento');
 
-    // Mantém a duração correta mesmo enquanto uma instalação antiga do banco
-    // ainda não recebeu a versão mais nova da função confirm_payment.
+    // Compatibilidade com bancos que ainda usam a função confirm_payment antiga:
+    // uma licença paga e nunca ativada deve continuar sem prazo definido.
     const license = unwrap(
       await supabase
         .from('licenses')
-        .select('plan')
+        .select('last_validated_at, activated_devices')
         .eq('id', licenseId)
         .single(),
-      'Não foi possível carregar o plano da licença',
+      'Não foi possível verificar a ativação da licença',
     );
-    const plan = getPlan(license.plan);
-    if (!plan) {
-      const error = new Error('Plano da licença não é reconhecido');
-      error.statusCode = 500;
-      throw error;
+    if (!license.last_validated_at && (license.activated_devices || []).length === 0) {
+      unwrap(
+        await supabase
+          .from('licenses')
+          .update({ expires_at: null })
+          .eq('id', licenseId),
+        'Não foi possível preparar a validade da licença',
+      );
     }
-
-    const expiresAt = plan.days === null
-      ? null
-      : new Date(
-        new Date(effectivePaidAt).getTime() + plan.days * 24 * 60 * 60 * 1000,
-      ).toISOString();
-    unwrap(
-      await supabase
-        .from('licenses')
-        .update({ expires_at: expiresAt })
-        .eq('id', licenseId),
-      'Não foi possível definir a validade da licença',
-    );
 
     return licenseId;
   }
@@ -241,8 +237,9 @@ class LicenseService {
   }
 
   async activate({ licenseKey, deviceId, userAgent }) {
+    const supabase = getSupabase();
     const result = unwrap(
-      await getSupabase()
+      await supabase
         .rpc('activate_license', {
           p_license_key: licenseKey.trim().toUpperCase(),
           p_device_id: deviceId,
@@ -259,13 +256,42 @@ class LicenseService {
       throw error;
     }
 
+    let expiresAt = result.expires_at;
+    const firstExpiresAt = calculateFirstExpiration(result.plan);
+    if (!expiresAt && firstExpiresAt) {
+      const started = unwrap(
+        await supabase
+          .from('licenses')
+          .update({ expires_at: firstExpiresAt })
+          .eq('id', result.license_id)
+          .is('expires_at', null)
+          .select('expires_at')
+          .maybeSingle(),
+        'Não foi possível iniciar a validade da licença',
+      );
+
+      if (started?.expires_at) {
+        expiresAt = started.expires_at;
+      } else {
+        const current = unwrap(
+          await supabase
+            .from('licenses')
+            .select('expires_at')
+            .eq('id', result.license_id)
+            .single(),
+          'Não foi possível carregar a validade da licença',
+        );
+        expiresAt = current.expires_at;
+      }
+    }
+
     return {
       success: true,
       authStatus: 'success',
       keyValid: true,
       user: result.user_name || 'Usuário',
-      validade: result.expires_at
-        ? new Date(result.expires_at).getTime()
+      validade: expiresAt
+        ? new Date(expiresAt).getTime()
         : null,
       plan: result.plan,
       msg: result.message,
@@ -326,7 +352,7 @@ class LicenseService {
     let query = getSupabase()
       .from('payments')
       .select(
-        'id, status, amount, created_at, paid_at, license:licenses(id, license_key, plan, user_phone, user_email, user_name, expires_at)',
+        'id, status, amount, created_at, paid_at, license:licenses(id, license_key, plan, user_phone, user_email, user_name, expires_at, last_validated_at)',
       )
       .eq('provider', 'manual_pix')
       .order('created_at', { ascending: false })
@@ -351,6 +377,7 @@ class LicenseService {
         createdAt: payment.created_at,
         paidAt: payment.paid_at,
         expiresAt: payment.license?.expires_at || null,
+        activatedAt: payment.license?.last_validated_at || null,
         plan: payment.license?.plan || '',
         planName: plan?.name || payment.license?.plan || '',
         durationDays: plan?.days ?? null,
@@ -365,4 +392,4 @@ class LicenseService {
   }
 }
 
-module.exports = { LicenseService };
+module.exports = { LicenseService, calculateFirstExpiration };

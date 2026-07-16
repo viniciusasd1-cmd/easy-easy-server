@@ -71,7 +71,7 @@ test('painel administrativo possui relógio regressivo de validade', async (cont
 
   assert.equal(response.status, 200);
   assert.match(body, /Duração contratada/);
-  assert.match(body, /Começa após a aprovação/);
+  assert.match(body, /Começa na primeira ativação/);
   assert.match(body, /setInterval\(updateCountdowns, 1000\)/);
   assert.match(body, /Enviar pelo WhatsApp/);
 });

@@ -93,7 +93,11 @@ function sendLicenseByWhatsApp(payment) {
     `Olá${payment.userName ? `, ${payment.userName}` : ''}! Seu pagamento EASY&EASY foi confirmado.`,
     `Chave da licença: ${payment.licenseKey}`,
     `Plano: ${payment.planName || payment.plan}`,
-    payment.expiresAt ? `Validade: ${formatDate(payment.expiresAt)}` : 'Validade: vitalícia',
+    payment.plan === 'lifetime'
+      ? 'Validade: vitalícia'
+      : payment.expiresAt
+        ? `Validade: ${formatDate(payment.expiresAt)}`
+        : 'O prazo começa na primeira ativação.',
   ].join('\n');
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
 }
@@ -155,10 +159,16 @@ function renderPayments(payments) {
     const details = document.createElement('dl');
     const countdown = document.createElement('span');
     if (payment.status === 'paid') {
-      if (payment.expiresAt) countdown.dataset.countdown = payment.expiresAt;
-      countdown.textContent = countdownLabel(payment.expiresAt);
+      if (payment.expiresAt) {
+        countdown.dataset.countdown = payment.expiresAt;
+        countdown.textContent = countdownLabel(payment.expiresAt);
+      } else if (payment.plan === 'lifetime') {
+        countdown.textContent = 'Vitalícia';
+      } else {
+        countdown.textContent = 'Começa na primeira ativação';
+      }
     } else {
-      countdown.textContent = 'Começa após a aprovação';
+      countdown.textContent = 'Começa na primeira ativação';
     }
 
     const rows = [
@@ -243,7 +253,7 @@ async function loadPayments() {
 async function approvePayment(payment, button) {
   const confirmed = confirm(
     `Você conferiu no banco o PIX de ${formatMoney(payment.amount)}?\n\n` +
-      'A licença será liberada imediatamente e esta ação não deve ser usada antes do recebimento.',
+      'A chave será liberada imediatamente. O prazo começará somente na primeira ativação.',
   );
   if (!confirmed) return;
 
