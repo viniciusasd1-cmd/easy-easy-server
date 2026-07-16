@@ -32,6 +32,23 @@ test('aprovação manual rejeita requisição sem segredo antes de acessar o ban
   assert.equal(body.error, 'Credencial administrativa inválida');
 });
 
+test('encerramento manual rejeita requisição sem segredo antes de acessar o banco', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const { port } = server.address();
+  const response = await fetch(
+    `http://127.0.0.1:${port}/api/admin/payments/b40423b2-932f-4d18-9b08-c3cbd4874e3d/expire`,
+    { method: 'POST' },
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(body.success, false);
+  assert.equal(body.error, 'Credencial administrativa inválida');
+});
+
 test('listagem administrativa rejeita requisição sem segredo', async (context) => {
   const server = app.listen(0);
   context.after(() => new Promise((resolve) => server.close(resolve)));
@@ -57,6 +74,7 @@ test('painel administrativo é servido sem expor a chave', async (context) => {
 
   assert.equal(response.status, 200);
   assert.match(body, /Painel de pagamentos/);
+  assert.match(body, /approval-dialog/);
   assert.doesNotMatch(body, /uma-chave-administrativa-de-teste/);
 });
 
@@ -74,6 +92,10 @@ test('painel administrativo possui relógio regressivo de validade', async (cont
   assert.match(body, /Começa na primeira ativação/);
   assert.match(body, /setInterval\(updateCountdowns, 1000\)/);
   assert.match(body, /Enviar pelo WhatsApp/);
+  assert.match(body, /navigator\.clipboard\.writeText/);
+  assert.match(body, /Encerrar solicitação/);
+  assert.match(body, /Confirmar pagamento mesmo assim/);
+  assert.match(body, /A chave foi copiada automaticamente/);
 });
 
 test('CORS permite extensão Chrome somente nas rotas públicas', async (context) => {

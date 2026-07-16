@@ -52,6 +52,17 @@
         <div id="payments" class="payments" aria-live="polite"></div>
       </section>
     </main>
+
+    <dialog id="approval-dialog" class="approval-dialog">
+      <div class="approval-icon" aria-hidden="true">✓</div>
+      <h2>Licença liberada!</h2>
+      <p id="approval-status">A chave foi copiada automaticamente.</p>
+      <code id="approved-key" class="approved-key"></code>
+      <div class="dialog-actions">
+        <button id="copy-approved-key" class="primary" type="button">Copiar novamente</button>
+        <button id="close-approval-dialog" class="secondary" type="button">Fechar</button>
+      </div>
+    </dialog>
     <script src="/admin/admin.js"></script>
   </body>
 </html>

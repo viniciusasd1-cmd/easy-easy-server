@@ -186,6 +186,9 @@ class LicenseService {
 
   async getPaymentStatus(checkoutId) {
     const supabase = getSupabase();
+    if (this.paymentProvider.kind === 'manual_pix') {
+      await this.expireStaleManualPayments();
+    }
     let payment = unwrap(
       await supabase
         .from('payments')
@@ -334,7 +337,7 @@ class LicenseService {
     if (payment.status === 'paid') {
       return this.getPaymentStatus(checkoutId);
     }
-    if (payment.status !== 'pending') {
+    if (!['pending', 'expired'].includes(payment.status)) {
       const error = new Error(`Pagamento não pode ser aprovado no estado ${payment.status}`);
       error.statusCode = 409;
       throw error;
@@ -348,11 +351,86 @@ class LicenseService {
     return this.getPaymentStatus(checkoutId);
   }
 
+  async expireStaleManualPayments(now = new Date().toISOString()) {
+    const supabase = getSupabase();
+    const expiredPayments = unwrap(
+      await supabase
+        .from('payments')
+        .update({ status: 'expired' })
+        .eq('provider', 'manual_pix')
+        .eq('status', 'pending')
+        .lte('expires_at', now)
+        .select('license_id'),
+      'Não foi possível expirar as solicitações antigas',
+    );
+
+    const licenseIds = [...new Set(expiredPayments.map((payment) => payment.license_id))];
+    if (licenseIds.length > 0) {
+      unwrap(
+        await supabase
+          .from('licenses')
+          .update({ payment_status: 'expired' })
+          .in('id', licenseIds)
+          .eq('payment_status', 'pending'),
+        'Não foi possível expirar as licenças pendentes',
+      );
+    }
+
+    return expiredPayments.length;
+  }
+
+  async expireManualPayment(checkoutId) {
+    const supabase = getSupabase();
+    const payment = unwrap(
+      await supabase
+        .from('payments')
+        .select('id, license_id, status')
+        .eq('id', checkoutId)
+        .eq('provider', 'manual_pix')
+        .single(),
+      'Pagamento PIX manual não encontrado',
+    );
+
+    if (payment.status === 'paid') {
+      const error = new Error('Um pagamento confirmado não pode ser encerrado');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (!['pending', 'expired'].includes(payment.status)) {
+      const error = new Error(`Solicitação não pode ser encerrada no estado ${payment.status}`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (payment.status !== 'expired') {
+      unwrap(
+        await supabase
+          .from('payments')
+          .update({ status: 'expired' })
+          .eq('id', payment.id),
+        'Não foi possível encerrar a solicitação',
+      );
+    }
+
+    unwrap(
+      await supabase
+        .from('licenses')
+        .update({ payment_status: 'expired' })
+        .eq('id', payment.license_id)
+        .neq('payment_status', 'paid'),
+      'Não foi possível encerrar a licença pendente',
+    );
+
+    return { paymentId: payment.id, status: 'expired' };
+  }
+
   async listAdminPayments(status = undefined) {
+    await this.expireStaleManualPayments();
     let query = getSupabase()
       .from('payments')
       .select(
-        'id, status, amount, created_at, paid_at, license:licenses(id, license_key, plan, user_phone, user_email, user_name, expires_at, last_validated_at)',
+        'id, status, amount, created_at, expires_at, paid_at, license:licenses(id, license_key, plan, user_phone, user_email, user_name, expires_at, last_validated_at)',
       )
       .eq('provider', 'manual_pix')
       .order('created_at', { ascending: false })
@@ -375,6 +453,7 @@ class LicenseService {
           ? `EE${payment.license.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
           : '',
         createdAt: payment.created_at,
+        paymentExpiresAt: payment.expires_at,
         paidAt: payment.paid_at,
         expiresAt: payment.license?.expires_at || null,
         activatedAt: payment.license?.last_validated_at || null,

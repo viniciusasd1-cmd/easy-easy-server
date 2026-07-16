@@ -305,6 +305,21 @@ if (config.paymentProvider === 'manual_pix') {
       });
     }),
   );
+
+  app.post(
+    '/api/admin/payments/:paymentId/expire',
+    adminLimiter,
+    requireManualApprovalSecret,
+    asyncRoute(async (req, res) => {
+      const paymentId = z.uuid().parse(req.params.paymentId);
+      const data = await licenseService.expireManualPayment(paymentId);
+      res.json({
+        success: true,
+        message: 'Solicitação encerrada',
+        data,
+      });
+    }),
+  );
 }
 
 if (

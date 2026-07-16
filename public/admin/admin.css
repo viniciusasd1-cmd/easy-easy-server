@@ -38,9 +38,10 @@ label { display: grid; gap: 6px; }
 label span { color: var(--muted); font-size: 12px; font-weight: 700; }
 input, select { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; outline: none; background: var(--panel-2); color: var(--text); padding: 0 12px; }
 input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(71, 215, 172, 0.12); }
-.primary, .secondary { min-height: 42px; border-radius: 10px; padding: 0 16px; font-weight: 800; }
+.primary, .secondary, .danger { min-height: 42px; border-radius: 10px; padding: 0 16px; font-weight: 800; }
 .primary { border: 0; color: #05251c; background: linear-gradient(135deg, var(--accent), #79e8c7); }
 .secondary { border: 1px solid var(--line); color: var(--text); background: var(--panel-2); }
+.danger { border: 1px solid rgba(255, 107, 122, 0.45); color: #ff9ca6; background: rgba(255, 107, 122, 0.08); }
 .login-card .primary { width: 100%; margin-top: 14px; }
 .message { min-height: 22px; margin: 10px 0 0; color: var(--danger) !important; text-align: center; }
 .toolbar { display: flex; align-items: end; gap: 12px; padding: 15px; }
@@ -59,13 +60,22 @@ dl { display: grid; gap: 7px; margin: 16px 0; }
 dl div { display: flex; justify-content: space-between; gap: 12px; }
 dt { color: var(--muted); }
 dd { margin: 0; text-align: right; word-break: break-all; }
+.pending-actions { display: grid; gap: 8px; }
 .approve { width: 100%; }
 .payment-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .payment-actions button { min-width: 0; padding-inline: 10px; }
+.approval-dialog { width: min(100% - 28px, 470px); border: 1px solid var(--line); border-radius: 20px; background: var(--panel); color: var(--text); padding: 28px; text-align: center; }
+.approval-dialog::backdrop { background: rgba(3, 6, 11, 0.82); backdrop-filter: blur(4px); }
+.approval-dialog h2 { margin: 8px 0 4px; }
+.approval-dialog p { color: var(--muted); }
+.approval-icon { display: grid; width: 58px; height: 58px; margin: 0 auto; place-items: center; border-radius: 50%; color: #05251c; background: var(--accent); font-size: 32px; font-weight: 900; }
+.approved-key { display: block; margin: 20px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--accent); padding: 14px; font-size: clamp(14px, 4vw, 19px); overflow-wrap: anywhere; user-select: all; }
+.dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .state { margin-top: 16px; padding: 28px; color: var(--muted); text-align: center; }
 @media (max-width: 620px) {
   .shell { width: min(100% - 22px, 1040px); padding-top: 22px; }
   header, .toolbar { align-items: stretch; flex-direction: column; }
   .toolbar > div { margin-right: 0; }
   .payment-actions { grid-template-columns: 1fr; }
+  .dialog-actions { grid-template-columns: 1fr; }
 }

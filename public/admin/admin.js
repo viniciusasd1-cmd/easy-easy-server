@@ -13,6 +13,11 @@ const elements = {
   empty: document.getElementById('empty'),
   payments: document.getElementById('payments'),
   updatedAt: document.getElementById('updated-at'),
+  approvalDialog: document.getElementById('approval-dialog'),
+  approvalStatus: document.getElementById('approval-status'),
+  approvedKey: document.getElementById('approved-key'),
+  copyApprovedKey: document.getElementById('copy-approved-key'),
+  closeApprovalDialog: document.getElementById('close-approval-dialog'),
 };
 
 let adminKey = '';
@@ -77,13 +82,36 @@ function whatsAppDigits(phone) {
   return String(phone || '').replace(/\D/g, '');
 }
 
+async function writeLicenseKey(licenseKey) {
+  try {
+    await navigator.clipboard.writeText(licenseKey);
+    return true;
+  } catch (error) {
+    console.warn('Não foi possível copiar automaticamente:', error);
+    return false;
+  }
+}
+
 async function copyLicenseKey(licenseKey, button) {
-  await navigator.clipboard.writeText(licenseKey);
+  const copied = await writeLicenseKey(licenseKey);
+  if (!copied) {
+    alert('O navegador bloqueou a cópia. Selecione a chave e copie manualmente.');
+    return false;
+  }
   const original = button.textContent;
   button.textContent = 'Chave copiada!';
   setTimeout(() => {
     button.textContent = original;
   }, 1600);
+  return true;
+}
+
+function showApprovalDialog(licenseKey, copied) {
+  elements.approvedKey.textContent = licenseKey;
+  elements.approvalStatus.textContent = copied
+    ? 'A chave foi copiada automaticamente.'
+    : 'O navegador não permitiu a cópia automática. Use o botão abaixo.';
+  if (!elements.approvalDialog.open) elements.approvalDialog.showModal();
 }
 
 function sendLicenseByWhatsApp(payment) {
@@ -176,6 +204,14 @@ function renderPayments(payments) {
       ['Plano', payment.planName || payment.plan],
       ['Duração contratada', durationLabel(payment)],
       ['Tempo restante', countdown],
+      ...(payment.status === 'pending' && payment.paymentExpiresAt
+        ? [['Solicitação expira em', (() => {
+          const requestCountdown = document.createElement('span');
+          requestCountdown.dataset.countdown = payment.paymentExpiresAt;
+          requestCountdown.textContent = countdownLabel(payment.paymentExpiresAt);
+          return requestCountdown;
+        })()]]
+        : []),
       ...(payment.paidAt ? [['Aprovado em', formatDate(payment.paidAt)]] : []),
       ...(payment.expiresAt ? [['Válida até', formatDate(payment.expiresAt)]] : []),
       ...(payment.licenseKey ? [['Chave da licença', payment.licenseKey]] : []),
@@ -196,12 +232,27 @@ function renderPayments(payments) {
 
     card.append(top, details);
     if (payment.status === 'pending') {
+      const actions = document.createElement('div');
+      actions.className = 'pending-actions';
       const approve = document.createElement('button');
       approve.className = 'primary approve';
       approve.type = 'button';
       approve.textContent = 'Confirmar recebimento e liberar licença';
       approve.addEventListener('click', () => void approvePayment(payment, approve));
-      card.append(approve);
+      const expire = document.createElement('button');
+      expire.className = 'danger';
+      expire.type = 'button';
+      expire.textContent = 'Encerrar solicitação';
+      expire.addEventListener('click', () => void expirePayment(payment, expire));
+      actions.append(approve, expire);
+      card.append(actions);
+    } else if (payment.status === 'expired') {
+      const lateApproval = document.createElement('button');
+      lateApproval.className = 'secondary approve';
+      lateApproval.type = 'button';
+      lateApproval.textContent = 'Confirmar pagamento mesmo assim';
+      lateApproval.addEventListener('click', () => void approvePayment(payment, lateApproval));
+      card.append(lateApproval);
     } else if (payment.status === 'paid' && payment.licenseKey) {
       const actions = document.createElement('div');
       actions.className = 'payment-actions';
@@ -260,14 +311,38 @@ async function approvePayment(payment, button) {
   button.disabled = true;
   button.textContent = 'Liberando...';
   try {
-    await adminRequest(`/api/admin/payments/${payment.paymentId}/approve`, {
+    const response = await adminRequest(`/api/admin/payments/${payment.paymentId}/approve`, {
+      method: 'POST',
+    });
+    const licenseKey = response.data?.licenseKey;
+    const copied = licenseKey ? await writeLicenseKey(licenseKey) : false;
+    await loadPayments();
+    if (licenseKey) showApprovalDialog(licenseKey, copied);
+  } catch (error) {
+    alert(error.message);
+    button.disabled = false;
+    button.textContent = 'Confirmar recebimento e liberar licença';
+  }
+}
+
+async function expirePayment(payment, button) {
+  const confirmed = confirm(
+    `Encerrar a solicitação ${payment.referenceCode || payment.paymentId}?\n\n` +
+      'Ela sairá dos pendentes e continuará disponível em Expirados.',
+  );
+  if (!confirmed) return;
+
+  button.disabled = true;
+  button.textContent = 'Encerrando...';
+  try {
+    await adminRequest(`/api/admin/payments/${payment.paymentId}/expire`, {
       method: 'POST',
     });
     await loadPayments();
   } catch (error) {
     alert(error.message);
     button.disabled = false;
-    button.textContent = 'Confirmar recebimento e liberar licença';
+    button.textContent = 'Encerrar solicitação';
   }
 }
 
@@ -303,6 +378,10 @@ elements.adminKey.addEventListener('keydown', (event) => {
 elements.logout.addEventListener('click', () => showLogin());
 elements.refresh.addEventListener('click', () => void loadPayments());
 elements.statusFilter.addEventListener('change', () => void loadPayments());
+elements.copyApprovedKey.addEventListener('click', () => {
+  void copyLicenseKey(elements.approvedKey.textContent, elements.copyApprovedKey);
+});
+elements.closeApprovalDialog.addEventListener('click', () => elements.approvalDialog.close());
 window.addEventListener('pagehide', () => {
   clearInterval(refreshTimer);
   clearInterval(countdownTimer);
