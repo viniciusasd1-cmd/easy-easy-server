@@ -75,11 +75,14 @@ test('landing pública e painel administrativo são servidos sem expor a chave',
   const panelBody = await panel.text();
 
   assert.equal(landing.status, 200);
-  assert.match(landingBody, /Automação que[\s\S]*economiza seu tempo/);
-  assert.match(landingBody, /easy-easy-extension\.zip/);
-  assert.equal(panel.status, 200);
-  assert.match(panelBody, /Painel de pagamentos/);
-  assert.match(panelBody, /approval-dialog/);
+    assert.match(landingBody, /Automação que[\s\S]*economiza seu tempo/);
+    assert.match(landingBody, /easy-easy-extension\.zip/);
+    assert.match(landingBody, /R\$ 499,00/);
+    assert.match(landingBody, /R\$ 199,90/);
+    assert.equal(panel.status, 200);
+    assert.match(panelBody, /Painel de pagamentos/);
+    assert.match(panelBody, /approval-dialog/);
+    assert.match(panelBody, /\/admin\/painel\/admin\.js/);
   assert.doesNotMatch(panelBody, /uma-chave-administrativa-de-teste/);
 });
 

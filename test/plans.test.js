@@ -11,10 +11,10 @@ test('expõe os seis planos com valores e durações esperados', () => {
     [
       { id: 'daily', price: 4.99, days: 1 },
       { id: 'weekly', price: 24.9, days: 7 },
-      { id: 'fortnightly', price: 44.9, days: 15 },
+      { id: 'fortnightly', price: 49.9, days: 15 },
       { id: 'monthly', price: 79.9, days: 30 },
-      { id: 'annual', price: 699.9, days: 365 },
-      { id: 'lifetime', price: 1499, days: null },
+      { id: 'annual', price: 199.9, days: 365 },
+      { id: 'lifetime', price: 499, days: null },
     ],
   );
   assert.equal(getPlan('quarterly'), null);

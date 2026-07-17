@@ -22,7 +22,7 @@ const PLANS = Object.freeze([
   Object.freeze({
     id: 'fortnightly',
     name: '15 dias',
-    price: 44.9,
+    price: 49.9,
     days: 15,
     description: 'Acesso completo por 15 dias',
     badge: '',
@@ -38,15 +38,15 @@ const PLANS = Object.freeze([
   Object.freeze({
     id: 'annual',
     name: 'Anual',
-    price: 699.9,
+    price: 199.9,
     days: 365,
-    description: 'Economize 27% no ano',
+    description: 'Acesso completo por 1 ano',
     badge: 'Melhor valor',
   }),
   Object.freeze({
     id: 'lifetime',
     name: 'Vitalício',
-    price: 1499,
+    price: 499,
     days: null,
     description: 'Pagamento único, acesso permanente',
     badge: 'Para sempre',

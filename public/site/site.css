@@ -34,6 +34,13 @@ h1 { max-width: 730px; margin-bottom: 20px; font-size: clamp(42px, 8vw, 78px); l
 .steps span { color: var(--accent); font-weight: 900; }
 .steps h2 { margin: 12px 0 4px; font-size: 20px; }
 .steps p, .install p { margin: 0; color: var(--muted); font-size: 14px; }
+.pricing { padding: 68px 0; border-bottom: 1px solid var(--line); }
+.pricing-heading h2 { max-width: 480px; margin-bottom: 28px; font-size: clamp(28px, 4vw, 42px); line-height: 1.06; letter-spacing: -.04em; }
+.price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.price-card { min-height: 172px; padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.price-card h3 { margin: 0 0 16px; font-size: 16px; }
+.price-card strong { display: block; margin-bottom: 12px; color: var(--accent); font-size: 25px; letter-spacing: -.035em; }
+.price-card p { margin: 0; color: var(--muted); font-size: 13px; }
 .install { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 70px 0; }
 .install h2 { margin-bottom: 8px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
 .install strong { color: var(--text); }
@@ -46,6 +53,9 @@ footer { display: flex; width: min(100% - 40px, 980px); justify-content: space-b
   .steps { grid-template-columns: 1fr; }
   .steps article, .steps article:first-child { padding: 22px 0; border-right: 0; border-bottom: 1px solid var(--line); }
   .steps article:last-child { border-bottom: 0; }
+  .pricing { padding: 50px 0; }
+  .price-grid { grid-template-columns: repeat(2, 1fr); }
+  .price-card { min-height: 148px; padding: 18px; }
   .install { align-items: flex-start; flex-direction: column; padding: 50px 0; }
   footer { flex-wrap: wrap; }
 }
