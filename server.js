@@ -161,8 +161,17 @@ app.get('/api/plans', (_req, res) => {
 });
 
 app.use(
-  '/admin',
+  '/admin/painel',
   express.static(path.join(__dirname, 'public', 'admin'), {
+    dotfiles: 'deny',
+    index: 'index.html',
+    redirect: true,
+  }),
+);
+
+app.use(
+  '/admin',
+  express.static(path.join(__dirname, 'public', 'site'), {
     dotfiles: 'deny',
     index: 'index.html',
     redirect: true,

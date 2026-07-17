@@ -63,19 +63,24 @@ test('listagem administrativa rejeita requisição sem segredo', async (context)
   assert.equal(body.error, 'Credencial administrativa inválida');
 });
 
-test('painel administrativo é servido sem expor a chave', async (context) => {
+test('landing pública e painel administrativo são servidos sem expor a chave', async (context) => {
   const server = app.listen(0);
   context.after(() => new Promise((resolve) => server.close(resolve)));
   await new Promise((resolve) => server.once('listening', resolve));
 
   const { port } = server.address();
-  const response = await fetch(`http://127.0.0.1:${port}/admin/`);
-  const body = await response.text();
+  const landing = await fetch(`http://127.0.0.1:${port}/admin/`);
+  const landingBody = await landing.text();
+  const panel = await fetch(`http://127.0.0.1:${port}/admin/painel/`);
+  const panelBody = await panel.text();
 
-  assert.equal(response.status, 200);
-  assert.match(body, /Painel de pagamentos/);
-  assert.match(body, /approval-dialog/);
-  assert.doesNotMatch(body, /uma-chave-administrativa-de-teste/);
+  assert.equal(landing.status, 200);
+  assert.match(landingBody, /Automação que[\s\S]*economiza seu tempo/);
+  assert.match(landingBody, /easy-easy-extension\.zip/);
+  assert.equal(panel.status, 200);
+  assert.match(panelBody, /Painel de pagamentos/);
+  assert.match(panelBody, /approval-dialog/);
+  assert.doesNotMatch(panelBody, /uma-chave-administrativa-de-teste/);
 });
 
 test('painel administrativo possui relógio regressivo de validade', async (context) => {
@@ -84,7 +89,7 @@ test('painel administrativo possui relógio regressivo de validade', async (cont
   await new Promise((resolve) => server.once('listening', resolve));
 
   const { port } = server.address();
-  const response = await fetch(`http://127.0.0.1:${port}/admin/admin.js`);
+  const response = await fetch(`http://127.0.0.1:${port}/admin/painel/admin.js`);
   const body = await response.text();
 
   assert.equal(response.status, 200);
