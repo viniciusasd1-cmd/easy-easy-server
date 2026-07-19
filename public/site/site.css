@@ -47,6 +47,18 @@ h1 { max-width: 730px; margin-bottom: 20px; font-size: clamp(42px, 8vw, 78px); l
 .install { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 70px 0; }
 .install h2 { margin-bottom: 8px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
 .install strong { color: var(--text); }
+.install-guide-section { padding: 0 0 70px; }
+.install-heading { max-width: 640px; }
+.install-guide-section h2 { margin-bottom: 8px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
+.install-guide-section p { margin: 0; color: var(--muted); font-size: 14px; }
+.install-guide { display: grid; gap: 14px; margin: 32px 0 0; padding: 26px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(135deg, rgba(85, 56, 157, .18), var(--panel)); list-style: none; }
+.install-guide li { display: grid; grid-template-columns: 44px 1fr; gap: 16px; align-items: start; }
+.install-guide li > span { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 50%; color: #d0b7ff; background: #3d2a70; font-weight: 900; }
+.install-guide h3 { margin: 3px 0 4px; font-size: 17px; }
+.install-guide code { padding: 2px 7px; border-radius: 5px; color: #bd8cff; background: #080b12; font: 600 13px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.install-guide .developer-note { margin: 3px 0; padding: 18px; border: 1px solid rgba(255, 76, 101, .45); border-radius: 14px; background: rgba(154, 31, 59, .18); }
+.install-guide .developer-note > span { color: #ffc1ca; background: #7d1731; }
+.install-guide .developer-note h3 { color: #ff6980; text-transform: uppercase; letter-spacing: .03em; }
 footer { display: flex; width: min(100% - 40px, 980px); justify-content: space-between; gap: 12px; margin: 0 auto; padding: 20px 0 32px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .admin-link { opacity: .1; transition: opacity .2s ease; }
 .admin-link:hover, .admin-link:focus { opacity: .75; }
@@ -62,5 +74,7 @@ footer { display: flex; width: min(100% - 40px, 980px); justify-content: space-b
   .price-grid { grid-template-columns: repeat(2, 1fr); }
   .price-card { min-height: 148px; padding: 18px; }
   .install { align-items: flex-start; flex-direction: column; padding: 50px 0; }
+  .install-guide-section { padding-bottom: 50px; }
+  .install-guide { padding: 20px; }
   footer { flex-wrap: wrap; }
 }
