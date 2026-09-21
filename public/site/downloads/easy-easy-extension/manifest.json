@@ -1,0 +1,78 @@
+{
+  "manifest_version": 3,
+  "name": "EASY&EASY",
+  "version": "6.0.0",
+  "description": "Automação com licenciamento seguro e pagamento via PIX.",
+  "permissions": [
+    "storage", 
+    "tabs", 
+    "alarms", 
+    "downloads", 
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "https://easy-easy-server.onrender.com/*",
+    "https://api.lovable.dev/*",
+    "https://uedaagency.lovable.app/*",
+    "https://api.mistral.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "32": "icon.png",
+      "48": "icon.png",
+      "64": "icon.png",
+      "128": "icon.png",
+      "256": "icon.png"
+    }
+  },
+  "icons": {
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png",
+    "64": "icon.png",
+    "128": "icon.png",
+    "256": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://lovable.dev/*",
+        "https://*.lovable.dev/*",
+        "https://uedaagency.lovable.app/*",
+        "http://localhost/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://lovable.dev/*",
+        "https://*.lovable.dev/*",
+        "https://uedaagency.lovable.app/*",
+        "http://localhost/*"
+      ],
+      "css": ["widget.css"],
+      "js": ["widget.js"],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js", "logo.png"],
+      "matches": [
+        "https://lovable.dev/*",
+        "https://*.lovable.dev/*",
+        "https://uedaagency.lovable.app/*",
+        "http://localhost/*"
+      ]
+    }
+  ]
+}

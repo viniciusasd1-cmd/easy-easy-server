@@ -1,0 +1,267 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+/* ── Clean up the lovable chat blocker ── */
+/* Targets the blocker injected when license is expired */
+#lovable-chat-blocker {
+  background: transparent !important;
+  backdrop-filter: blur(4px) !important;
+  font-family: 'Montserrat', sans-serif !important;
+  border-radius: 12px !important;
+}
+
+/* Hide the huge warning emoji div */
+#lovable-chat-blocker > div:first-child,
+#lovable-chat-blocker svg {
+  display: none !important;
+}
+
+#lovable-chat-blocker h3 {
+  font-family: 'Montserrat', sans-serif !important;
+  font-weight: 600 !important;
+}
+
+#lovable-chat-blocker p {
+  font-family: 'Montserrat', sans-serif !important;
+  opacity: 0.8 !important;
+}
+
+
+/* Hide extension countdown if still present */
+#extension-countdown {
+  display: none !important;
+}
+
+/* ============================================
+   FLOATING WIDGET CONTAINER
+   ============================================ */
+#ueda-widget-container {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 9999999;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: 'Montserrat', 'Inter', -apple-system, sans-serif;
+}
+
+/* ============================================
+   THE FLOATING U LOGO BUTTON
+   ============================================ */
+.ueda-widget-btn {
+  width: 52px;
+  height: 52px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+/* Pulse rings */
+.ueda-widget-btn::before,
+.ueda-widget-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1.5px solid rgba(29, 175, 216, 0.5);
+  animation: ueda-pulse 2.5s infinite cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.ueda-widget-btn::after {
+  animation-delay: 1.25s;
+}
+
+@keyframes ueda-pulse {
+  0% { width: 100%; height: 100%; opacity: 0.8; }
+  100% { width: 220%; height: 220%; opacity: 0; }
+}
+
+.ueda-widget-logo {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(29, 175, 216, 0.6));
+  transition: transform 0.2s ease;
+}
+
+#ueda-widget-container:hover .ueda-widget-logo {
+  transform: scale(1.05);
+}
+
+/* ============================================
+   THE DROPDOWN MENU — appears on hover
+   ============================================ */
+.ueda-widget-menu {
+  /* Dark glass panel */
+  background: rgba(14, 16, 22, 0.92);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 6px 0;
+  margin-bottom: 12px;
+
+  /* Layout: icons-only by default */
+  display: flex;
+  flex-direction: column;
+  width: 54px;
+  overflow: hidden;
+
+  /* Hidden by default */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px) scale(0.97);
+  transition: opacity 0.22s ease, visibility 0.22s ease, transform 0.22s ease, width 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: bottom right;
+}
+
+/* Show menu when open class is applied (JS controls this on click) */
+#ueda-widget-container.ueda-open .ueda-widget-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  width: 54px; /* icons only by default */
+}
+
+/* When expanded: show text too */
+#ueda-widget-container.ueda-open.ueda-expanded .ueda-widget-menu {
+  width: 230px;
+}
+
+/* ============================================
+   MENU HEADER (collapse/expand button)
+   ============================================ */
+.ueda-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 10px;
+  margin: 4px 6px 6px 6px;
+  border: 1px solid rgba(29, 175, 216, 0.4);
+  border-radius: 10px;
+  color: #a8b2c8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  gap: 8px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ueda-menu-header:hover {
+  background: rgba(29, 175, 216, 0.12);
+  border-color: #1DAFD8;
+  color: #fff;
+}
+.ueda-menu-header svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+/* Rotate arrow when expanded */
+#ueda-widget-container.ueda-expanded .ueda-menu-header svg {
+  transform: rotate(180deg);
+}
+/* Show text in header only when expanded */
+.ueda-menu-header-text {
+  display: none;
+}
+#ueda-widget-container.ueda-expanded .ueda-menu-header-text {
+  display: inline;
+}
+
+/* ============================================
+   MENU ITEMS
+   ============================================ */
+.ueda-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  color: #9aa3b5;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  gap: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+/* When expanded: align left with padding */
+#ueda-widget-container.ueda-expanded .ueda-menu-item {
+  justify-content: flex-start;
+  padding: 9px 14px;
+}
+.ueda-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.ueda-menu-item:hover svg {
+  stroke: #1DAFD8;
+}
+.ueda-menu-item svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  fill: none;
+  flex-shrink: 0;
+  transition: stroke 0.15s;
+}
+/* Hide text when not expanded */
+.ueda-item-text {
+  display: none;
+}
+#ueda-widget-container.ueda-expanded .ueda-item-text {
+  display: inline;
+}
+/* Account info inner text */
+.ueda-account-info {
+  display: none;
+  flex-direction: column;
+}
+#ueda-widget-container.ueda-expanded .ueda-account-info {
+  display: flex;
+}
+
+/* ============================================
+   COLOR STATES
+   ============================================ */
+.ueda-text-green {
+  color: #22e5a0 !important;
+}
+.ueda-text-green svg {
+  stroke: #22e5a0 !important;
+}
+.ueda-text-red {
+  color: #ff6b6b !important;
+}
+.ueda-text-red svg {
+  stroke: #ff6b6b !important;
+}
+
+/* ============================================
+   CHAT BORDER GLOW — when monitor is ON
+   ============================================ */
+.ueda-chat-glow-active {
+  box-shadow: 0 0 0 2px #1DAFD8, 0 0 24px rgba(29, 175, 216, 0.35) !important;
+  border-radius: 12px !important;
+  transition: box-shadow 0.3s ease !important;
+}

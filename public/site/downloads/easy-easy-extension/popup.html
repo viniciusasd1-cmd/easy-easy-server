@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'"
+    />
+    <title>EASY&amp;EASY</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="logo.png" alt="" class="brand-logo" />
+          <div>
+            <strong>EASY&amp;EASY</strong>
+            <span>Automação sem complicação</span>
+          </div>
+        </div>
+        <button id="themeBtn" class="icon-button" type="button" aria-label="Alternar tema">☾</button>
+      </header>
+
+      <section id="loginView">
+        <div class="intro">
+          <span class="eyebrow">Escolha seu acesso</span>
+          <h1>Ative em poucos minutos</h1>
+          <p>Pagamento seguro via PIX e liberação automática da licença.</p>
+        </div>
+
+        <div class="buyer-fields">
+          <label>
+            <span>WhatsApp</span>
+            <input
+              id="userPhone"
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              maxlength="20"
+              placeholder="(11) 99999-9999"
+            />
+          </label>
+          <label>
+            <span>Nome <small>(opcional)</small></span>
+            <input id="buyerName" type="text" autocomplete="name" maxlength="80" placeholder="Seu nome" />
+          </label>
+        </div>
+
+        <div id="plans-loading" class="loading">Carregando planos...</div>
+        <div id="plans-container" class="plans-grid" aria-live="polite"></div>
+        <p id="plans-error" class="message error" hidden></p>
+
+        <section id="payment-screen" class="payment-panel" hidden>
+          <button id="payment-back" class="text-button" type="button">← Voltar aos planos</button>
+          <h2>Pague via PIX</h2>
+          <p class="payment-help">Escaneie o QR Code ou copie o código PIX.</p>
+          <img id="qr-code" class="qr-code" alt="QR Code PIX" />
+          <strong id="amount-display" class="payment-amount"></strong>
+          <p class="payment-reference">Identificador: <strong id="payment-reference"></strong></p>
+          <div class="copy-row">
+            <code id="pix-code"></code>
+            <button id="copy-pix" type="button">Copiar</button>
+          </div>
+          <p id="payment-status" class="payment-status">⏳ Aguardando pagamento...</p>
+          <button id="manual-check" class="secondary-button" type="button">Verificar pagamento</button>
+          <button id="send-receipt" class="whatsapp-button" type="button">Enviar comprovante pelo WhatsApp</button>
+          <div id="license-release" class="license-release" hidden>
+            <span>Sua licença</span>
+            <strong id="license-key-final"></strong>
+            <button id="copy-license" class="secondary-button" type="button">Copiar licença</button>
+            <button id="activate-btn" class="primary-button" type="button">Ativar agora</button>
+          </div>
+        </section>
+
+        <section id="activation-section" class="manual-activation">
+          <div>
+            <strong>Já tem uma licença?</strong>
+            <span>Cole sua chave para ativar.</span>
+          </div>
+          <input id="manual-key-input" type="text" autocomplete="off" placeholder="EASY-XXXX-XXXX-XXXX-XXXX" />
+          <button id="manual-activate-btn" class="secondary-button" type="button">Ativar licença</button>
+          <p id="activation-message" class="message" aria-live="polite"></p>
+        </section>
+      </section>
+
+      <section id="homeView" hidden>
+        <div class="account-card">
+          <span class="success-mark">✓</span>
+          <span class="eyebrow">Licença ativa</span>
+          <h1 id="userLine">Minha conta</h1>
+          <p id="countdown">Calculando validade...</p>
+          <p id="warningBox" class="message error" hidden>Licença expirada.</p>
+        </div>
+
+        <div class="setting-row">
+          <div><strong>Extensão</strong><span id="status">Ativa</span></div>
+          <label class="switch"><input id="enabled" type="checkbox" /><span></span></label>
+        </div>
+
+        <fieldset class="mode-fieldset">
+          <legend>Modo de operação</legend>
+          <label><input id="mode1" type="radio" name="mode" value="1" /><span>Padrão</span></label>
+          <label><input id="mode2" type="radio" name="mode" value="2" /><span>Avançado</span></label>
+        </fieldset>
+
+        <div class="setting-row">
+          <div><strong>Mostrar validade</strong><span>Exibir tempo restante</span></div>
+          <label class="switch"><input id="showValidity" type="checkbox" /><span></span></label>
+        </div>
+
+        <button id="logoutButton" class="danger-button" type="button">Sair da conta</button>
+      </section>
+
+      <footer class="support-footer">
+        <span>Precisa de ajuda?</span>
+        <button id="support-whatsapp" type="button">
+          Suporte WhatsApp: (11) 97788-4807
+        </button>
+      </footer>
+
+      <div id="global-loading" class="overlay" hidden><span></span><p>Processando...</p></div>
+      <div id="toast" class="toast" hidden></div>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
